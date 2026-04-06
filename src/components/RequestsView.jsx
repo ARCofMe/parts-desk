@@ -33,7 +33,7 @@ export default function RequestsView({
   useEffect(() => {
     if (!persistFilters) return;
     onPreferencesChange?.(filters);
-  }, [filters, onPreferencesChange, persistFilters]);
+  }, [filters, persistFilters]);
 
   const visibleItems = useMemo(() => {
     return (items || []).filter((item) =>

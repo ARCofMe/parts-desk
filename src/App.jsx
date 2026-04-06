@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { partsApi } from "./api/client";
 import BrandBar from "./components/BrandBar";
 import TabNav from "./components/TabNav";
@@ -24,6 +24,8 @@ const DEFAULT_PREFERENCES = {
 };
 
 export default function App() {
+  const caseDetailRequestIdRef = useRef(0);
+  const requestDetailRequestIdRef = useRef(0);
   const [activeTab, setActiveTab] = useState("board");
   const [board, setBoard] = useState(null);
   const [boardError, setBoardError] = useState("");
@@ -116,16 +118,24 @@ export default function App() {
   }
 
   async function loadCaseDetail(reference) {
+    const requestId = caseDetailRequestIdRef.current + 1;
+    caseDetailRequestIdRef.current = requestId;
     setCaseDetailLoading(true);
+    setSelectedCaseDetail(null);
     try {
       const [casePayload, timelinePayload] = await Promise.all([
         partsApi.getCase(reference),
         partsApi.getCaseTimeline(reference),
       ]);
+      if (caseDetailRequestIdRef.current !== requestId) return;
       setSelectedCaseDetail({ ...casePayload, timeline: timelinePayload });
+      setCaseActionState(null);
     } catch (error) {
+      if (caseDetailRequestIdRef.current !== requestId) return;
+      setSelectedCaseDetail(null);
       setCaseActionState({ error: true, message: formatError(error) });
     } finally {
+      if (caseDetailRequestIdRef.current !== requestId) return;
       setCaseDetailLoading(false);
     }
   }
@@ -167,6 +177,7 @@ export default function App() {
 
   async function handleCaseSelect(item) {
     setSelectedCase(item);
+    setSelectedCaseDetail(null);
     setCaseActionState(null);
     if (preferences.rememberLastCase && item?.reference) {
       window.localStorage.setItem(LAST_CASE_KEY, item.reference);
@@ -175,19 +186,28 @@ export default function App() {
   }
 
   async function loadRequestDetail(requestId) {
+    const detailRequestId = requestDetailRequestIdRef.current + 1;
+    requestDetailRequestIdRef.current = detailRequestId;
     setRequestDetailLoading(true);
+    setSelectedRequestDetail(null);
     try {
       const payload = await partsApi.getRequest(requestId);
+      if (requestDetailRequestIdRef.current !== detailRequestId) return;
       setSelectedRequestDetail(payload);
+      setRequestActionState(null);
     } catch (error) {
+      if (requestDetailRequestIdRef.current !== detailRequestId) return;
+      setSelectedRequestDetail(null);
       setRequestActionState({ error: true, message: formatError(error) });
     } finally {
+      if (requestDetailRequestIdRef.current !== detailRequestId) return;
       setRequestDetailLoading(false);
     }
   }
 
   async function handleRequestSelect(item) {
     setSelectedRequest(item);
+    setSelectedRequestDetail(null);
     setRequestActionState(null);
     if (preferences.rememberLastRequest && item?.requestId) {
       window.localStorage.setItem(LAST_REQUEST_KEY, String(item.requestId));

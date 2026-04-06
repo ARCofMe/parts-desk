@@ -7,6 +7,8 @@ const { partsApiMock } = vi.hoisted(() => ({
     getBoard: vi.fn(),
     getCases: vi.fn(),
     getRequests: vi.fn(),
+    getCase: vi.fn(),
+    getCaseTimeline: vi.fn(),
     sync: vi.fn(),
   },
 }));
@@ -21,9 +23,13 @@ describe("Parts App", () => {
     partsApiMock.getBoard.mockReset();
     partsApiMock.getCases.mockReset();
     partsApiMock.getRequests.mockReset();
+    partsApiMock.getCase.mockReset();
+    partsApiMock.getCaseTimeline.mockReset();
     partsApiMock.sync.mockReset();
     partsApiMock.getCases.mockResolvedValue({ items: [] });
     partsApiMock.getRequests.mockResolvedValue({ items: [] });
+    partsApiMock.getCase.mockResolvedValue({ case: { reference: "SR-100" }, trackedRequests: [] });
+    partsApiMock.getCaseTimeline.mockResolvedValue({ entries: [] });
     partsApiMock.sync.mockResolvedValue({ message: "Sync complete." });
   });
 
@@ -95,5 +101,40 @@ describe("Parts App", () => {
       expect(partsApiMock.getCases).toHaveBeenCalledTimes(2);
       expect(partsApiMock.getRequests).toHaveBeenCalledTimes(2);
     });
+  });
+
+  it("clears stale case detail when a later case load fails", async () => {
+    partsApiMock.getBoard.mockResolvedValue({
+      queueSummary: {},
+      caseMetrics: {},
+      openCases: [],
+      openTrackedRequests: [],
+    });
+    partsApiMock.getCases.mockResolvedValue({
+      items: [
+        { caseId: "parts:SR-100", reference: "SR-100", stage: "part_ordered", status: "open" },
+        { caseId: "parts:SR-101", reference: "SR-101", stage: "part_received", status: "open" },
+      ],
+    });
+    partsApiMock.getCase
+      .mockResolvedValueOnce({ case: { reference: "SR-100", stage: "part_ordered", status: "open" }, trackedRequests: [] })
+      .mockRejectedValueOnce(new Error("Could not load parts case detail."));
+    partsApiMock.getCaseTimeline
+      .mockResolvedValueOnce({ entries: [] })
+      .mockResolvedValueOnce({ entries: [] });
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Cases" }));
+    fireEvent.click(await screen.findByRole("button", { name: /SR-100/i }));
+    expect(await screen.findByRole("heading", { name: "SR-100" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /SR-101/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Could not load parts case detail.")).toBeInTheDocument();
+    });
+    expect(screen.queryByRole("heading", { name: "SR-100" })).not.toBeInTheDocument();
+    expect(screen.getByText("Select a parts case to inspect tracked requests and timeline.")).toBeInTheDocument();
   });
 });

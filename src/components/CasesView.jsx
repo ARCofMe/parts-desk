@@ -33,7 +33,7 @@ export default function CasesView({
   useEffect(() => {
     if (!persistFilters) return;
     onPreferencesChange?.(filters);
-  }, [filters, onPreferencesChange, persistFilters]);
+  }, [filters, persistFilters]);
 
   const visibleItems = useMemo(() => {
     return (items || []).filter((item) =>
@@ -119,7 +119,12 @@ function CaseDetail({ detail, loading, actionState, onCaseAction, onOpenRequests
     return <aside className="detail-panel"><p className="muted">Loading parts case…</p></aside>;
   }
   if (!detail?.case) {
-    return <aside className="detail-panel"><p className="muted">Select a parts case to inspect tracked requests and timeline.</p></aside>;
+    return (
+      <aside className="detail-panel">
+        {actionState && <p className={actionState.error ? "error-text" : "muted"}>{actionState.message}</p>}
+        <p className="muted">Select a parts case to inspect tracked requests and timeline.</p>
+      </aside>
+    );
   }
 
   const item = detail.case;
