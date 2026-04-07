@@ -108,7 +108,7 @@ export default function App() {
     setCasesLoading(true);
     setCasesError("");
     try {
-      const payload = await partsApi.getCases();
+      const payload = await partsApi.getCases({ status: "open" });
       setCases(payload.items || []);
     } catch (error) {
       setCasesError(formatError(error));

@@ -149,4 +149,14 @@ describe("Parts App", () => {
     });
     expect(() => JSON.parse(window.localStorage.getItem("parts-preferences") || "")).not.toThrow();
   });
+
+  it("loads the cases tab from open cases only", async () => {
+    partsApiMock.getBoard.mockResolvedValue({ queueSummary: {}, caseMetrics: {}, openCases: [], openTrackedRequests: [] });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(partsApiMock.getCases).toHaveBeenCalledWith({ status: "open" });
+    });
+  });
 });
