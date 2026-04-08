@@ -172,4 +172,36 @@ describe("Parts App", () => {
     expect(window.localStorage.getItem("parts-app-name")).toBeNull();
     expect(document.title).toBe("PartsDesk | ARCoM Ops Hub");
   });
+
+  it("clears stale case detail when refresh removes the selected case", async () => {
+    partsApiMock.getBoard.mockResolvedValue({
+      queueSummary: {},
+      caseMetrics: {},
+      openCases: [],
+      openTrackedRequests: [],
+    });
+    partsApiMock.getCases
+      .mockResolvedValueOnce({
+        items: [{ caseId: "parts:SR-100", reference: "SR-100", stage: "part_ordered", status: "open" }],
+      })
+      .mockResolvedValueOnce({ items: [] });
+    partsApiMock.getCase.mockResolvedValueOnce({
+      case: { reference: "SR-100", stage: "part_ordered", status: "open" },
+      trackedRequests: [],
+    });
+    partsApiMock.getCaseTimeline.mockResolvedValueOnce({ entries: [] });
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Cases" }));
+    fireEvent.click(await screen.findByRole("button", { name: /SR-100/i }));
+    expect(await screen.findByRole("heading", { name: "SR-100" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Select a parts case to inspect tracked requests and timeline.")).toBeInTheDocument();
+    });
+    expect(screen.queryByRole("heading", { name: "SR-100" })).not.toBeInTheDocument();
+  });
 });

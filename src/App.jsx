@@ -106,7 +106,18 @@ export default function App() {
     setCasesError("");
     try {
       const payload = await partsApi.getCases({ status: "open" });
-      setCases(payload.items || []);
+      const nextItems = payload.items || [];
+      setCases(nextItems);
+      setSelectedCase((current) => {
+        if (!current?.reference) return current;
+        const match = nextItems.find((item) => item.reference === current.reference);
+        if (!match) {
+          setSelectedCaseDetail(null);
+          setCaseActionState(null);
+          return null;
+        }
+        return match;
+      });
     } catch (error) {
       setCasesError(formatError(error));
     } finally {
@@ -142,7 +153,18 @@ export default function App() {
     setRequestsError("");
     try {
       const payload = await partsApi.getRequests();
-      setRequests(payload.items || []);
+      const nextItems = payload.items || [];
+      setRequests(nextItems);
+      setSelectedRequest((current) => {
+        if (!current?.requestId) return current;
+        const match = nextItems.find((item) => item.requestId === current.requestId);
+        if (!match) {
+          setSelectedRequestDetail(null);
+          setRequestActionState(null);
+          return null;
+        }
+        return match;
+      });
     } catch (error) {
       setRequestsError(formatError(error));
     } finally {
