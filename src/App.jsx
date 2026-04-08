@@ -23,6 +23,9 @@ const DEFAULT_PREFERENCES = {
 };
 
 export default function App() {
+  const boardLoadIdRef = useRef(0);
+  const casesLoadIdRef = useRef(0);
+  const requestsLoadIdRef = useRef(0);
   const caseDetailRequestIdRef = useRef(0);
   const requestDetailRequestIdRef = useRef(0);
   const [activeTab, setActiveTab] = useState("board");
@@ -91,22 +94,31 @@ export default function App() {
   }, [preferences.restoreLastRequestOnLaunch, requests, selectedRequest]);
 
   async function loadBoard() {
+    const requestId = boardLoadIdRef.current + 1;
+    boardLoadIdRef.current = requestId;
     setBoardLoading(true);
     setBoardError("");
     try {
-      setBoard(await partsApi.getBoard());
+      const payload = await partsApi.getBoard();
+      if (boardLoadIdRef.current !== requestId) return;
+      setBoard(payload);
     } catch (error) {
+      if (boardLoadIdRef.current !== requestId) return;
       setBoardError(formatError(error));
     } finally {
+      if (boardLoadIdRef.current !== requestId) return;
       setBoardLoading(false);
     }
   }
 
   async function loadCases() {
+    const requestId = casesLoadIdRef.current + 1;
+    casesLoadIdRef.current = requestId;
     setCasesLoading(true);
     setCasesError("");
     try {
       const payload = await partsApi.getCases({ status: "open" });
+      if (casesLoadIdRef.current !== requestId) return;
       const nextItems = payload.items || [];
       setCases(nextItems);
       setSelectedCase((current) => {
@@ -120,8 +132,10 @@ export default function App() {
         return match;
       });
     } catch (error) {
+      if (casesLoadIdRef.current !== requestId) return;
       setCasesError(formatError(error));
     } finally {
+      if (casesLoadIdRef.current !== requestId) return;
       setCasesLoading(false);
     }
   }
@@ -169,10 +183,13 @@ export default function App() {
   }
 
   async function loadRequests() {
+    const requestId = requestsLoadIdRef.current + 1;
+    requestsLoadIdRef.current = requestId;
     setRequestsLoading(true);
     setRequestsError("");
     try {
       const payload = await partsApi.getRequests();
+      if (requestsLoadIdRef.current !== requestId) return;
       const nextItems = payload.items || [];
       setRequests(nextItems);
       setSelectedRequest((current) => {
@@ -186,18 +203,31 @@ export default function App() {
         return match;
       });
     } catch (error) {
+      if (requestsLoadIdRef.current !== requestId) return;
       setRequestsError(formatError(error));
     } finally {
+      if (requestsLoadIdRef.current !== requestId) return;
       setRequestsLoading(false);
     }
+  }
+
+  async function refreshDashboardSlices() {
+    const [boardResult, requestsResult, casesResult] = await Promise.allSettled([loadBoard(), loadRequests(), loadCases()]);
+    const failures = [boardResult, requestsResult, casesResult]
+      .filter((result) => result.status === "rejected")
+      .map((result) => formatError(result.reason));
+    return failures;
   }
 
   async function handleSync() {
     setSyncState({ error: false, message: "Sync running…" });
     try {
       const payload = await partsApi.sync();
-      setSyncState({ error: false, message: payload.message || "Sync complete" });
-      await Promise.all([loadBoard(), loadRequests(), loadCases()]);
+      const refreshFailures = await refreshDashboardSlices();
+      setSyncState({
+        error: refreshFailures.length > 0,
+        message: [payload.message || "Sync complete", ...refreshFailures].join(" "),
+      });
     } catch (error) {
       setSyncState({ error: true, message: formatError(error) });
     }
@@ -207,8 +237,11 @@ export default function App() {
     setSyncState({ error: false, message: "Reconcile running…" });
     try {
       const payload = await partsApi.reconcile();
-      setSyncState({ error: false, message: payload.message || "Reconcile complete" });
-      await Promise.all([loadBoard(), loadRequests(), loadCases()]);
+      const refreshFailures = await refreshDashboardSlices();
+      setSyncState({
+        error: refreshFailures.length > 0,
+        message: [payload.message || "Reconcile complete", ...refreshFailures].join(" "),
+      });
     } catch (error) {
       setSyncState({ error: true, message: formatError(error) });
     }

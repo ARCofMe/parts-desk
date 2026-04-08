@@ -103,6 +103,31 @@ describe("Parts App", () => {
     });
   });
 
+  it("reports partial refresh failures after sync without dropping successful reloads", async () => {
+    partsApiMock.getBoard
+      .mockResolvedValueOnce({ queueSummary: {}, caseMetrics: {}, openCases: [], openTrackedRequests: [] })
+      .mockRejectedValueOnce(new Error("Board refresh failed."));
+    partsApiMock.getCases
+      .mockResolvedValueOnce({ items: [] })
+      .mockResolvedValueOnce({ items: [] });
+    partsApiMock.getRequests
+      .mockResolvedValueOnce({ items: [] })
+      .mockResolvedValueOnce({ items: [] });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Sync" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Sync" }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Sync complete\./)).toBeInTheDocument();
+      expect(screen.getByText(/Board refresh failed\./)).toBeInTheDocument();
+    });
+  });
+
   it("clears stale case detail when a later case load fails", async () => {
     partsApiMock.getBoard.mockResolvedValue({
       queueSummary: {},

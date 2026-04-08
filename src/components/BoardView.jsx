@@ -10,7 +10,7 @@ export default function BoardView({
   onOpenRequest,
 }) {
   if (loading) return <section className="panel">Loading parts board…</section>;
-  if (error) return <section className="panel error-panel">{error}</section>;
+  if (error && !board) return <section className="panel error-panel">{error}</section>;
   if (!board) return <section className="panel">Parts board is not loaded yet.</section>;
 
   const summary = board.queueSummary || {};
@@ -30,6 +30,7 @@ export default function BoardView({
         </div>
       </div>
 
+      {error && <p className="error-text">{error}</p>}
       {syncState && <p className={syncState.error ? "error-text" : "muted"}>{syncState.message}</p>}
 
       <div className="board-grid">
