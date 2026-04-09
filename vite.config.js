@@ -10,5 +10,11 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: "./src/setupTests.js",
     globals: true,
+    fileParallelism: false,
+    poolOptions: {
+      threads: {
+        singleThread: true,
+      },
+    },
   },
 });

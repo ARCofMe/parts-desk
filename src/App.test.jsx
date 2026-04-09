@@ -220,7 +220,24 @@ describe("Parts App", () => {
       expect(partsApiMock.getBoard).toHaveBeenCalledTimes(1);
     });
     expect(window.localStorage.getItem("parts-app-name")).toBeNull();
-    expect(document.title).toBe("PartsDesk | ARCoM Ops Hub");
+    expect(document.title).toBe("PartsApp | OpsHub");
+  });
+
+  it("sanitizes stored ecosystem links before rendering header jumps", async () => {
+    window.localStorage.setItem(
+      "parts-workspace-links",
+      JSON.stringify({
+        routeDeskUrl: "https://route.example.com",
+        partsAppUrl: "https://parts.example.com",
+        fieldDeskUrl: "javascript:alert(1)",
+      })
+    );
+    partsApiMock.getBoard.mockResolvedValue({ queueSummary: {}, caseMetrics: {}, openCases: [], openTrackedRequests: [] });
+
+    render(<App />);
+
+    expect(await screen.findByRole("link", { name: "Open RouteDesk" })).toHaveAttribute("href", "https://route.example.com");
+    expect(screen.queryByRole("link", { name: "Open FieldDesk" })).not.toBeInTheDocument();
   });
 
   it("clears stale case detail when refresh removes the selected case", async () => {

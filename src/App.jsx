@@ -12,6 +12,7 @@ const PARTS_PREFERENCES_KEY = "parts-preferences";
 const LAST_CASE_KEY = "parts-last-case";
 const LAST_REQUEST_KEY = "parts-last-request";
 const APP_NAME_KEY = "parts-app-name";
+const WORKSPACE_LINKS_KEY = "parts-workspace-links";
 const DEFAULT_PREFERENCES = {
   caseFilters: { stage: "", age: "", status: "", reference: "" },
   requestFilters: { status: "", assignedPartsLabel: "", reference: "", caseStageLabel: "" },
@@ -21,6 +22,33 @@ const DEFAULT_PREFERENCES = {
   rememberLastRequest: true,
   restoreLastRequestOnLaunch: false,
 };
+const DEFAULT_WORKSPACE_LINKS = {
+  routeDeskUrl: import.meta.env.VITE_ROUTEDESK_URL || "",
+  partsAppUrl: import.meta.env.VITE_PARTSAPP_URL || "",
+  fieldDeskUrl: import.meta.env.VITE_FIELDDESK_URL || "",
+};
+
+function normalizeWorkspaceLinks(links) {
+  const source = links && typeof links === "object" ? links : {};
+  return {
+    routeDeskUrl: sanitizeWorkspaceUrl(source.routeDeskUrl ?? DEFAULT_WORKSPACE_LINKS.routeDeskUrl),
+    partsAppUrl: sanitizeWorkspaceUrl(source.partsAppUrl ?? DEFAULT_WORKSPACE_LINKS.partsAppUrl),
+    fieldDeskUrl: sanitizeWorkspaceUrl(source.fieldDeskUrl ?? DEFAULT_WORKSPACE_LINKS.fieldDeskUrl),
+  };
+}
+
+function sanitizeWorkspaceUrl(value) {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return "";
+}
+
+function resolveThemeMode(themeMode) {
+  if (themeMode === "dark") return "dark";
+  if (themeMode === "light") return "light";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
 
 export default function App() {
   const boardLoadIdRef = useRef(0);
@@ -50,8 +78,9 @@ export default function App() {
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [selectedRequestDetail, setSelectedRequestDetail] = useState(null);
   const [requestDetailLoading, setRequestDetailLoading] = useState(false);
-  const [themeMode, setThemeMode] = useState(() => window.localStorage.getItem(THEME_MODE_KEY) || "light");
+  const [themeMode, setThemeMode] = useState(() => window.localStorage.getItem(THEME_MODE_KEY) || "dark");
   const [preferences, setPreferences] = useState(() => readStoredPreferences());
+  const [workspaceLinks, setWorkspaceLinks] = useState(() => readStoredWorkspaceLinks());
 
   useEffect(() => {
     loadBoard();
@@ -61,17 +90,32 @@ export default function App() {
 
   useEffect(() => {
     window.localStorage.setItem(THEME_MODE_KEY, themeMode);
-    document.documentElement.dataset.theme = themeMode;
+    document.documentElement.dataset.theme = resolveThemeMode(themeMode);
+  }, [themeMode]);
+
+  useEffect(() => {
+    if (themeMode !== "system") return undefined;
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const syncTheme = () => {
+      document.documentElement.dataset.theme = mediaQuery.matches ? "dark" : "light";
+    };
+    syncTheme();
+    mediaQuery.addEventListener("change", syncTheme);
+    return () => mediaQuery.removeEventListener("change", syncTheme);
   }, [themeMode]);
 
   useEffect(() => {
     window.localStorage.removeItem(APP_NAME_KEY);
-    document.title = "PartsDesk | ARCoM Ops Hub";
+    document.title = "PartsApp | OpsHub";
   }, []);
 
   useEffect(() => {
     window.localStorage.setItem(PARTS_PREFERENCES_KEY, JSON.stringify(preferences));
   }, [preferences]);
+
+  useEffect(() => {
+    window.localStorage.setItem(WORKSPACE_LINKS_KEY, JSON.stringify(workspaceLinks));
+  }, [workspaceLinks]);
 
   useEffect(() => {
     if (!preferences.restoreLastCaseOnLaunch) return;
@@ -353,7 +397,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <BrandBar appName="PartsDesk" />
+      <BrandBar appName="PartsApp" workspaceLinks={workspaceLinks} currentApp="partsApp" />
       <TabNav activeTab={activeTab} onSelect={setActiveTab} />
 
       {activeTab === "board" && (
@@ -414,6 +458,8 @@ export default function App() {
           preferences={preferences}
           onPreferencesChange={setPreferences}
           onClearSavedState={clearSavedState}
+          workspaceLinks={workspaceLinks}
+          onWorkspaceLinksChange={(value) => setWorkspaceLinks(normalizeWorkspaceLinks(value))}
         />
       )}
     </div>
@@ -431,6 +477,12 @@ function readStoredPreferences() {
       ...(parsed.persistFilters || {}),
     },
   };
+}
+
+function readStoredWorkspaceLinks() {
+  const parsed = readStoredJson(window.localStorage, WORKSPACE_LINKS_KEY);
+  if (!parsed || typeof parsed !== "object") return normalizeWorkspaceLinks(DEFAULT_WORKSPACE_LINKS);
+  return normalizeWorkspaceLinks(parsed);
 }
 
 function readStoredJson(storage, key) {

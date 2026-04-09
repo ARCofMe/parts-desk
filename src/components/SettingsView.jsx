@@ -7,6 +7,8 @@ export default function SettingsView({
   preferences,
   onPreferencesChange,
   onClearSavedState,
+  workspaceLinks,
+  onWorkspaceLinksChange,
 }) {
   return (
     <section className="panel settings-layout">
@@ -20,12 +22,20 @@ export default function SettingsView({
         <article className="metric-card wide">
           <p>Appearance</p>
           <div className="theme-toggle-row">
-            <button type="button" className={themeMode === "light" ? "tab-button active" : "tab-button"} onClick={() => onThemeModeChange("light")}>
-              Light
-            </button>
-            <button type="button" className={themeMode === "dark" ? "tab-button active" : "tab-button"} onClick={() => onThemeModeChange("dark")}>
-              Dark
-            </button>
+            {[
+              ["system", "System"],
+              ["light", "Light"],
+              ["dark", "Dark"],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                className={themeMode === value ? "tab-button active" : "tab-button"}
+                onClick={() => onThemeModeChange(value)}
+              >
+                {label}
+              </button>
+            ))}
           </div>
         </article>
 
@@ -105,6 +115,36 @@ export default function SettingsView({
             <button type="button" className="secondary-button" onClick={onClearSavedState}>
               Clear saved filters and selections
             </button>
+          </div>
+        </article>
+
+        <article className="metric-card wide">
+          <p>Ecosystem links</p>
+          <div className="settings-grid">
+            <label className="field">
+              <span>RouteDesk URL</span>
+              <input
+                value={workspaceLinks?.routeDeskUrl || ""}
+                onChange={(event) => onWorkspaceLinksChange?.({ ...workspaceLinks, routeDeskUrl: event.target.value })}
+                placeholder="https://route.example.com"
+              />
+            </label>
+            <label className="field">
+              <span>PartsApp URL</span>
+              <input
+                value={workspaceLinks?.partsAppUrl || ""}
+                onChange={(event) => onWorkspaceLinksChange?.({ ...workspaceLinks, partsAppUrl: event.target.value })}
+                placeholder="https://parts.example.com"
+              />
+            </label>
+            <label className="field">
+              <span>FieldDesk URL</span>
+              <input
+                value={workspaceLinks?.fieldDeskUrl || ""}
+                onChange={(event) => onWorkspaceLinksChange?.({ ...workspaceLinks, fieldDeskUrl: event.target.value })}
+                placeholder="https://field.example.com"
+              />
+            </label>
           </div>
         </article>
       </div>
