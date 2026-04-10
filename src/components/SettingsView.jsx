@@ -27,6 +27,7 @@ export default function SettingsView({
   const criticalChecks = preflightChecks.filter((item) => item.label !== "Remember last case");
   const readyCount = preflightChecks.filter((item) => item.ready).length;
   const isPresentationReady = criticalChecks.every((item) => item.ready);
+  const missingChecks = preflightChecks.filter((item) => !item.ready);
 
   return (
     <section className="panel settings-layout">
@@ -70,6 +71,9 @@ export default function SettingsView({
               </div>
             ))}
           </div>
+          <p className="muted">
+            Next fixes: {missingChecks.length > 0 ? missingChecks.map((item) => item.label).join(", ") : "none"}
+          </p>
         </article>
 
         <article className="metric-card wide">
