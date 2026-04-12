@@ -122,6 +122,6 @@ function buildErrorMessage(status, payload, text) {
     `HTTP ${status}`;
 
   if (status === 401) return `${message} Check the Ops Hub API token.`;
-  if (status === 403) return `${message} Check the parts/admin user ID allowlist.`;
+  if (status === 403) return `${message} Check the OpsHub parts/admin operator allowlist.`;
   return message;
 }

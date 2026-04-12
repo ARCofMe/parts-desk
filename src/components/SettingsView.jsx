@@ -82,17 +82,17 @@ export default function SettingsView({
           <p>Operator identity</p>
           <div className="settings-grid">
             <label className="field">
-              <span>Parts user ID</span>
+              <span>OpsHub operator ID</span>
               <input
                 value={partsUserId || ""}
                 onChange={(event) => onPartsUserIdChange?.(event.target.value)}
-                placeholder="Your parts/admin user ID"
+                placeholder="Example: parts-desk"
               />
             </label>
           </div>
           <p className="muted">
-            Stored per browser under <code>partsdesk-parts-user-id</code>. Do not bake one parts operator into a
-            shared production bundle.
+            Stored per browser under <code>partsdesk-parts-user-id</code>. Use an OpsHub parts/admin operator ID;
+            linked Discord IDs still work for compatibility but are not required.
           </p>
         </article>
 

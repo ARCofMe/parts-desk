@@ -61,7 +61,7 @@ describe("SettingsView", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText("Parts user ID"), { target: { value: "parts-42" } });
+    fireEvent.change(screen.getByLabelText("OpsHub operator ID"), { target: { value: "parts-42" } });
 
     expect(onPartsUserIdChange).toHaveBeenCalledWith("parts-42");
   });

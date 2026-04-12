@@ -54,7 +54,7 @@ describe("partsApi client", () => {
     );
 
     await expect(partsApi.getBoard()).rejects.toThrow(
-      "Parts or admin identity could not be resolved. Check the parts/admin user ID allowlist.",
+      "Parts or admin identity could not be resolved. Check the OpsHub parts/admin operator allowlist.",
     );
   });
 

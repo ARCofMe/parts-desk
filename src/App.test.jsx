@@ -49,14 +49,14 @@ describe("Parts App", () => {
 
   it("shows the hardened parts auth error on initial board load", async () => {
     partsApiMock.getBoard.mockRejectedValue(
-      new Error("Parts or admin identity could not be resolved. Check the parts/admin user ID allowlist."),
+      new Error("Parts or admin identity could not be resolved. Check the OpsHub parts/admin operator allowlist."),
     );
 
     render(<App />);
 
     await waitFor(() => {
       expect(
-        screen.getByText("Parts or admin identity could not be resolved. Check the parts/admin user ID allowlist."),
+        screen.getByText("Parts or admin identity could not be resolved. Check the OpsHub parts/admin operator allowlist."),
       ).toBeInTheDocument();
     });
   });

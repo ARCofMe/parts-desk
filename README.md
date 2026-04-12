@@ -31,8 +31,9 @@ Create `.env.local` from `.env.example` and set:
 
 For the field/presentation environment, set `VITE_OPS_HUB_API_BASE=https://ops-hub.org`.
 Use `http://127.0.0.1:8787` only for local development against a local OpsHub process.
-For shared presentation deployments, leave `VITE_PARTS_USER_ID` blank and have each parts operator set their own ID in PartsDesk `Settings`.
+For shared presentation deployments, leave `VITE_PARTS_USER_ID` blank and have each parts operator set their own OpsHub operator ID in PartsDesk `Settings`.
 PartsDesk stores that identity per browser under `partsdesk-parts-user-id`.
+The preferred value is an OpsHub parts/admin operator ID from `OPS_HUB_PARTS_OPERATOR_IDS` or `OPS_HUB_ADMIN_OPERATOR_IDS`; linked Discord user IDs still work for compatibility.
 
 Optional:
 
