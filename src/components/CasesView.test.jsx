@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { vi } from "vitest";
 import CasesView from "./CasesView";
 
@@ -98,5 +98,53 @@ describe("CasesView", () => {
 
     expect(screen.queryByText("Could not load parts cases.")).not.toBeInTheDocument();
     expect(screen.getByText("SR-102")).toBeInTheDocument();
+  });
+
+  it("builds a copyable dispatch handoff brief for selected cases", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    render(
+      <CasesView
+        items={[]}
+        loading={false}
+        error=""
+        onRefresh={vi.fn()}
+        onSelectCase={vi.fn()}
+        selectedCase={{ reference: "SR-200" }}
+        selectedCaseDetail={{
+          case: {
+            caseId: "parts:SR-200",
+            srId: 200,
+            reference: "SR-200",
+            stage: "part_received",
+            stageLabel: "Received",
+            status: "open",
+            serviceRequestStatus: "Parts Received",
+            nextAction: "Schedule return visit",
+            blocker: "",
+          },
+          trackedRequests: [{ requestId: 5, status: "received", description: "Igniter kit" }],
+          timeline: { entries: [] },
+        }}
+        detailLoading={false}
+        actionState={null}
+        onCaseAction={vi.fn()}
+        onOpenRequests={vi.fn()}
+        onOpenRequest={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("Dispatch handoff brief")).toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Copy brief" }));
+    });
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(expect.stringContaining("SR-200: Received"));
+    });
+    await waitFor(() => {
+      expect(screen.getByText("Copied dispatch handoff brief.")).toBeInTheDocument();
+    });
   });
 });

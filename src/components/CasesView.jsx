@@ -117,6 +117,7 @@ function CaseDetail({ detail, loading, detailErrors, actionState, onCaseAction, 
   const [orderedEta, setOrderedEta] = useState("");
   const [receivedFrom, setReceivedFrom] = useState("");
   const [readyNote, setReadyNote] = useState("");
+  const [copyState, setCopyState] = useState("");
 
   if (loading) {
     return <aside className="detail-panel"><p className="muted">Loading parts case…</p></aside>;
@@ -163,6 +164,28 @@ function CaseDetail({ detail, loading, detailErrors, actionState, onCaseAction, 
         {item.blocker && <p className="error-text">Blocker: {item.blocker}</p>}
         {item.latestIssueText && <p className="muted">Issue: {item.latestIssueText}</p>}
         {item.latestStatusText && <p className="muted">Latest status: {item.latestStatusText}</p>}
+      </div>
+
+      <div className="detail-block">
+        <div className="section-head compact">
+          <strong>Dispatch handoff brief</strong>
+          <button
+            type="button"
+            onClick={async () => {
+              const brief = buildDispatchHandoffBrief(item, detail.trackedRequests || []);
+              try {
+                await navigator.clipboard.writeText(brief);
+                setCopyState("Copied dispatch handoff brief.");
+              } catch {
+                setCopyState("Clipboard unavailable. Handoff brief is shown below.");
+              }
+            }}
+          >
+            Copy brief
+          </button>
+        </div>
+        <p className="muted">{buildDispatchHandoffBrief(item, detail.trackedRequests || [])}</p>
+        {copyState && <p className="muted">{copyState}</p>}
       </div>
 
       <div className="detail-block">
@@ -285,4 +308,17 @@ function describeStatusMeta(meta) {
   if (meta.isScheduling) return "This SR is in a scheduling state, so confirm the parts loop is really still active.";
   if (meta.isReview) return "This SR is in a review or triage state, so office follow-up may be the real blocker.";
   return "This SR status does not currently map to a stronger parts-specific rule.";
+}
+
+function buildDispatchHandoffBrief(item, requests) {
+  const requestSummary = requests.length
+    ? requests.map((request) => `#${request.requestId} ${request.status}: ${request.description}`).join("; ")
+    : "no tracked request lines";
+  return [
+    `${item.reference}: ${item.stageLabel || item.stage || "parts case"}`,
+    `SR status: ${item.serviceRequestStatus || "unknown"}`,
+    `Next: ${item.nextAction || item.latestStatusText || "confirm parts status"}`,
+    `Blocker: ${item.blocker || "none listed"}`,
+    `Requests: ${requestSummary}`,
+  ].join(" | ");
 }
