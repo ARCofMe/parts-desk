@@ -36,6 +36,14 @@ function resolveThemeMode(themeMode) {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
+function shallowEqual(left = {}, right = {}) {
+  const keys = new Set([...Object.keys(left || {}), ...Object.keys(right || {})]);
+  for (const key of keys) {
+    if ((left || {})[key] !== (right || {})[key]) return false;
+  }
+  return true;
+}
+
 export default function App() {
   const boardLoadIdRef = useRef(0);
   const casesLoadIdRef = useRef(0);
@@ -382,6 +390,14 @@ export default function App() {
     await handleRequestSelect(match);
   }
 
+  function updateCaseFilters(filters) {
+    setPreferences((current) => (shallowEqual(current.caseFilters, filters) ? current : { ...current, caseFilters: filters }));
+  }
+
+  function updateRequestFilters(filters) {
+    setPreferences((current) => (shallowEqual(current.requestFilters, filters) ? current : { ...current, requestFilters: filters }));
+  }
+
   return (
     <div className="app-shell">
       <BrandBar appName="PartsDesk" workspaceLinks={workspaceLinks} currentApp="partsDesk" />
@@ -408,7 +424,7 @@ export default function App() {
           detailErrors={caseSectionErrors}
           initialFilters={preferences.caseFilters}
           persistFilters={preferences.persistFilters.cases}
-          onPreferencesChange={(filters) => setPreferences((current) => ({ ...current, caseFilters: filters }))}
+          onPreferencesChange={updateCaseFilters}
           onRefresh={loadCases}
           onSelectCase={handleCaseSelect}
           selectedCase={selectedCase}
@@ -427,7 +443,7 @@ export default function App() {
           error={requestsError}
           initialFilters={preferences.requestFilters}
           persistFilters={preferences.persistFilters.requests}
-          onPreferencesChange={(filters) => setPreferences((current) => ({ ...current, requestFilters: filters }))}
+          onPreferencesChange={updateRequestFilters}
           onRefresh={loadRequests}
           onSelectRequest={handleRequestSelect}
           selectedRequest={selectedRequest}
