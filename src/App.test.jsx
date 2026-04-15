@@ -15,13 +15,23 @@ const { partsApiMock } = vi.hoisted(() => ({
 
 vi.mock("./api/client", () => ({
   partsApi: partsApiMock,
-  getPartsUserId: () => window.localStorage.getItem("partsdesk-parts-user-id") || "",
+  getPartsUserId: () => {
+    try {
+      return window.localStorage.getItem("partsdesk-parts-user-id") || "";
+    } catch {
+      return "";
+    }
+  },
   setPartsUserId: (value) => {
     const cleaned = `${value || ""}`.trim();
-    if (cleaned) {
-      window.localStorage.setItem("partsdesk-parts-user-id", cleaned);
-    } else {
-      window.localStorage.removeItem("partsdesk-parts-user-id");
+    try {
+      if (cleaned) {
+        window.localStorage.setItem("partsdesk-parts-user-id", cleaned);
+      } else {
+        window.localStorage.removeItem("partsdesk-parts-user-id");
+      }
+    } catch {
+      // Match production storage tolerance.
     }
     return cleaned;
   },
@@ -231,6 +241,24 @@ describe("Parts App", () => {
     });
     expect(window.localStorage.getItem("parts-app-name")).toBeNull();
     expect(document.title).toBe("PartsDesk | OpsHub");
+  });
+
+  it("keeps rendering when browser storage is blocked", async () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    partsApiMock.getBoard.mockResolvedValue({ queueSummary: {}, caseMetrics: {}, openCases: [], openTrackedRequests: [] });
+
+    render(<App />);
+
+    expect(await screen.findByText("PartsDesk")).toBeInTheDocument();
+    expect(partsApiMock.getBoard).toHaveBeenCalledTimes(1);
   });
 
   it("sanitizes stored ecosystem links before rendering header jumps", async () => {

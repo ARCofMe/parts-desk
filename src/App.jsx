@@ -72,7 +72,7 @@ export default function App() {
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [selectedRequestDetail, setSelectedRequestDetail] = useState(null);
   const [requestDetailLoading, setRequestDetailLoading] = useState(false);
-  const [themeMode, setThemeMode] = useState(() => window.localStorage.getItem(THEME_MODE_KEY) || "dark");
+  const [themeMode, setThemeMode] = useState(() => safeLocalStorageGet(THEME_MODE_KEY) || "dark");
   const [partsUserId, setPartsUserIdState] = useState(() => getPartsUserId());
   const [preferences, setPreferences] = useState(() => readStoredPreferences());
   const [workspaceLinks, setWorkspaceLinks] = useState(() => readStoredWorkspaceLinks());
@@ -84,7 +84,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem(THEME_MODE_KEY, themeMode);
+    safeLocalStorageSet(THEME_MODE_KEY, themeMode);
     document.documentElement.dataset.theme = resolveThemeMode(themeMode);
   }, [themeMode]);
 
@@ -100,21 +100,21 @@ export default function App() {
   }, [themeMode]);
 
   useEffect(() => {
-    window.localStorage.removeItem(APP_NAME_KEY);
+    safeLocalStorageRemove(APP_NAME_KEY);
     document.title = "PartsDesk | OpsHub";
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem(PARTS_PREFERENCES_KEY, JSON.stringify(preferences));
+    safeLocalStorageSet(PARTS_PREFERENCES_KEY, JSON.stringify(preferences));
   }, [preferences]);
 
   useEffect(() => {
-    window.localStorage.setItem(WORKSPACE_LINKS_KEY, JSON.stringify(workspaceLinks));
+    safeLocalStorageSet(WORKSPACE_LINKS_KEY, JSON.stringify(workspaceLinks));
   }, [workspaceLinks]);
 
   useEffect(() => {
     if (!preferences.restoreLastCaseOnLaunch) return;
-    const lastReference = window.localStorage.getItem(LAST_CASE_KEY);
+    const lastReference = safeLocalStorageGet(LAST_CASE_KEY);
     if (!lastReference || !cases.length || selectedCase) return;
     const match = cases.find((item) => item.reference === lastReference);
     if (match) {
@@ -124,7 +124,7 @@ export default function App() {
 
   useEffect(() => {
     if (!preferences.restoreLastRequestOnLaunch) return;
-    const lastRequest = window.localStorage.getItem(LAST_REQUEST_KEY);
+    const lastRequest = safeLocalStorageGet(LAST_REQUEST_KEY);
     if (!lastRequest || !requests.length || selectedRequest) return;
     const match = requests.find((item) => String(item.requestId) === lastRequest);
     if (match) {
@@ -292,7 +292,7 @@ export default function App() {
     setCaseSectionErrors({});
     setCaseActionState(null);
     if (preferences.rememberLastCase && item?.reference) {
-      window.localStorage.setItem(LAST_CASE_KEY, item.reference);
+      safeLocalStorageSet(LAST_CASE_KEY, item.reference);
     }
     await loadCaseDetail(item.reference);
   }
@@ -322,15 +322,15 @@ export default function App() {
     setSelectedRequestDetail(null);
     setRequestActionState(null);
     if (preferences.rememberLastRequest && item?.requestId) {
-      window.localStorage.setItem(LAST_REQUEST_KEY, String(item.requestId));
+      safeLocalStorageSet(LAST_REQUEST_KEY, String(item.requestId));
     }
     await loadRequestDetail(item.requestId);
   }
 
   function clearSavedState() {
-    window.localStorage.removeItem(LAST_CASE_KEY);
-    window.localStorage.removeItem(LAST_REQUEST_KEY);
-    window.localStorage.removeItem(PARTS_PREFERENCES_KEY);
+    safeLocalStorageRemove(LAST_CASE_KEY);
+    safeLocalStorageRemove(LAST_REQUEST_KEY);
+    safeLocalStorageRemove(PARTS_PREFERENCES_KEY);
     setPreferences(DEFAULT_PREFERENCES);
     setSelectedCase(null);
     setSelectedCaseDetail(null);
@@ -496,8 +496,32 @@ function readStoredJson(storage, key) {
     if (!raw) return null;
     return JSON.parse(raw);
   } catch {
-    storage.removeItem(key);
+    safeLocalStorageRemove(key);
     return null;
+  }
+}
+
+function safeLocalStorageGet(key) {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return "";
+  }
+}
+
+function safeLocalStorageSet(key, value) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Browser storage can be disabled; app state should remain usable in memory.
+  }
+}
+
+function safeLocalStorageRemove(key) {
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // Browser storage can be disabled; clearing should not crash the app.
   }
 }
 
