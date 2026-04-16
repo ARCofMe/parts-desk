@@ -147,4 +147,51 @@ describe("CasesView", () => {
       expect(screen.getByText("Copied dispatch handoff brief.")).toBeInTheDocument();
     });
   });
+
+  it("builds a scheduling handoff focused on received request lines", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    render(
+      <CasesView
+        items={[]}
+        loading={false}
+        error=""
+        onRefresh={vi.fn()}
+        onSelectCase={vi.fn()}
+        selectedCase={{ reference: "SR-201" }}
+        selectedCaseDetail={{
+          case: {
+            caseId: "parts:SR-201",
+            srId: 201,
+            reference: "SR-201",
+            stage: "part_received",
+            stageLabel: "Received",
+            status: "open",
+            serviceRequestStatus: "Parts Received",
+            nextAction: "Schedule return visit",
+          },
+          trackedRequests: [
+            { requestId: 5, status: "ordered", description: "Drain pump" },
+            { requestId: 6, status: "received", description: "Igniter kit" },
+          ],
+          timeline: { entries: [] },
+        }}
+        detailLoading={false}
+        actionState={null}
+        onCaseAction={vi.fn()}
+        onOpenRequests={vi.fn()}
+        onOpenRequest={vi.fn()}
+      />
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Copy scheduling handoff" }));
+    });
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(expect.stringContaining("#6 received: Igniter kit"));
+    });
+    expect(writeText.mock.calls[0][0]).not.toContain("Drain pump");
+  });
 });

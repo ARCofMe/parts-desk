@@ -189,6 +189,27 @@ function CaseDetail({ detail, loading, detailErrors, actionState, onCaseAction, 
       </div>
 
       <div className="detail-block">
+        <div className="section-head compact">
+          <strong>Scheduling handoff</strong>
+          <button
+            type="button"
+            onClick={async () => {
+              const brief = buildSchedulingHandoffBrief(item, detail.trackedRequests || []);
+              try {
+                await navigator.clipboard.writeText(brief);
+                setCopyState("Copied scheduling handoff.");
+              } catch {
+                setCopyState("Clipboard unavailable. Scheduling handoff is shown below.");
+              }
+            }}
+          >
+            Copy scheduling handoff
+          </button>
+        </div>
+        <p className="muted">{buildSchedulingHandoffBrief(item, detail.trackedRequests || [])}</p>
+      </div>
+
+      <div className="detail-block">
         <strong>Ordering update</strong>
         <div className="inline-form-row">
           <label className="field slim">
@@ -320,5 +341,19 @@ function buildDispatchHandoffBrief(item, requests) {
     `Next: ${item.nextAction || item.latestStatusText || "confirm parts status"}`,
     `Blocker: ${item.blocker || "none listed"}`,
     `Requests: ${requestSummary}`,
+  ].join(" | ");
+}
+
+function buildSchedulingHandoffBrief(item, requests) {
+  const receivedRequests = requests.filter((request) => String(request.status || "").toLowerCase().includes("received"));
+  const readyRequests = receivedRequests.length ? receivedRequests : requests;
+  const requestSummary = readyRequests.length
+    ? readyRequests.map((request) => `#${request.requestId} ${request.status}: ${request.description}`).join("; ")
+    : "no tracked request lines";
+  return [
+    `${item.reference}: parts scheduling handoff`,
+    `Stage: ${item.stageLabel || item.stage || "unknown"}`,
+    `Ready lines: ${requestSummary}`,
+    `Next: ${item.nextAction || item.latestStatusText || "schedule return visit when confirmed"}`,
   ].join(" | ");
 }
