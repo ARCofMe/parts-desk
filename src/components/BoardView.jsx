@@ -8,6 +8,7 @@ export default function BoardView({
   syncState,
   onOpenCase,
   onOpenRequest,
+  onRefresh,
 }) {
   if (loading) return <section className="panel">Loading parts board…</section>;
   if (error && !board) return <section className="panel error-panel">{error}</section>;
@@ -27,6 +28,7 @@ export default function BoardView({
           <h2>Queue status</h2>
         </div>
         <div className="action-row">
+          <button type="button" onClick={onRefresh}>Refresh</button>
           <button type="button" onClick={onOpenCases}>Open cases</button>
           <button type="button" onClick={onSync}>Sync</button>
           <button type="button" onClick={onReconcile}>Reconcile</button>

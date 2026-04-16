@@ -71,6 +71,31 @@ describe("Parts App", () => {
     });
   });
 
+  it("keeps a cached board visible when refresh fails", async () => {
+    window.localStorage.setItem(
+      "parts-board-cache",
+      JSON.stringify({
+        queueSummary: {
+          totalRequests: 4,
+          openRequests: 2,
+          assignedRequests: 1,
+          unassignedRequests: 1,
+          syncedRequests: 3,
+          resolvedCount: 1,
+        },
+        caseMetrics: { stageCounts: {}, assignedCases: 1, unassignedCases: 0 },
+        openCases: [],
+        openTrackedRequests: [],
+      }),
+    );
+    partsApiMock.getBoard.mockRejectedValue(new Error("OpsHub temporarily unavailable."));
+
+    render(<App />);
+
+    expect(await screen.findByText("Parts fulfillment brief")).toBeInTheDocument();
+    expect(screen.getByText("OpsHub temporarily unavailable.")).toBeInTheDocument();
+  });
+
   it("reloads board, cases, and requests after sync", async () => {
     partsApiMock.getBoard
       .mockResolvedValueOnce({

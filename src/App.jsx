@@ -13,6 +13,7 @@ const PARTS_PREFERENCES_KEY = "parts-preferences";
 const LAST_CASE_KEY = "parts-last-case";
 const LAST_REQUEST_KEY = "parts-last-request";
 const APP_NAME_KEY = "parts-app-name";
+const BOARD_CACHE_KEY = "parts-board-cache";
 const WORKSPACE_LINKS_KEY = "parts-workspace-links";
 const DEFAULT_PREFERENCES = {
   caseFilters: { stage: "", age: "", status: "", reference: "" },
@@ -51,7 +52,7 @@ export default function App() {
   const caseDetailRequestIdRef = useRef(0);
   const requestDetailRequestIdRef = useRef(0);
   const [activeTab, setActiveTab] = useState("board");
-  const [board, setBoard] = useState(null);
+  const [board, setBoard] = useState(() => readStoredBoard());
   const [boardError, setBoardError] = useState("");
   const [boardLoading, setBoardLoading] = useState(true);
   const [syncState, setSyncState] = useState(null);
@@ -141,6 +142,7 @@ export default function App() {
       const payload = await partsApi.getBoard();
       if (boardLoadIdRef.current !== requestId) return;
       setBoard(payload);
+      writeStoredBoard(payload);
     } catch (error) {
       if (boardLoadIdRef.current !== requestId) return;
       setBoardError(formatError(error));
@@ -414,6 +416,7 @@ export default function App() {
           syncState={syncState}
           onOpenCase={openCaseReference}
           onOpenRequest={openRequestId}
+          onRefresh={loadBoard}
         />
       )}
       {activeTab === "cases" && (
@@ -488,6 +491,16 @@ function readStoredWorkspaceLinks() {
   const parsed = readStoredJson(window.localStorage, WORKSPACE_LINKS_KEY);
   if (!parsed || typeof parsed !== "object") return normalizeWorkspaceLinks(DEFAULT_WORKSPACE_LINKS);
   return normalizeWorkspaceLinks(parsed, DEFAULT_WORKSPACE_LINKS);
+}
+
+function readStoredBoard() {
+  const parsed = readStoredJson(window.localStorage, BOARD_CACHE_KEY);
+  return parsed && typeof parsed === "object" ? parsed : null;
+}
+
+function writeStoredBoard(value) {
+  if (!value || typeof value !== "object") return;
+  safeLocalStorageSet(BOARD_CACHE_KEY, JSON.stringify(value));
 }
 
 function readStoredJson(storage, key) {
