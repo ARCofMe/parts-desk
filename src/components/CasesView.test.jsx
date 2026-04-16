@@ -194,4 +194,43 @@ describe("CasesView", () => {
     });
     expect(writeText.mock.calls[0][0]).not.toContain("Drain pump");
   });
+
+  it("shows the handoff text when clipboard copy is unavailable", async () => {
+    Object.assign(navigator, { clipboard: undefined });
+
+    render(
+      <CasesView
+        items={[]}
+        loading={false}
+        error=""
+        onRefresh={vi.fn()}
+        onSelectCase={vi.fn()}
+        selectedCase={{ reference: "SR-202" }}
+        selectedCaseDetail={{
+          case: {
+            caseId: "parts:SR-202",
+            srId: 202,
+            reference: "SR-202",
+            stage: "part_ordered",
+            stageLabel: "Ordered",
+            status: "open",
+            nextAction: "Post ETA",
+          },
+          trackedRequests: [],
+          timeline: { entries: [] },
+        }}
+        detailLoading={false}
+        actionState={null}
+        onCaseAction={vi.fn()}
+        onOpenRequests={vi.fn()}
+        onOpenRequest={vi.fn()}
+      />
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Copy brief" }));
+    });
+
+    expect(screen.getByText("Clipboard unavailable. Handoff brief is shown below.")).toBeInTheDocument();
+  });
 });

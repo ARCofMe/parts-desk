@@ -173,10 +173,9 @@ function CaseDetail({ detail, loading, detailErrors, actionState, onCaseAction, 
             type="button"
             onClick={async () => {
               const brief = buildDispatchHandoffBrief(item, detail.trackedRequests || []);
-              try {
-                await navigator.clipboard.writeText(brief);
+              if (await copyText(brief)) {
                 setCopyState("Copied dispatch handoff brief.");
-              } catch {
+              } else {
                 setCopyState("Clipboard unavailable. Handoff brief is shown below.");
               }
             }}
@@ -195,10 +194,9 @@ function CaseDetail({ detail, loading, detailErrors, actionState, onCaseAction, 
             type="button"
             onClick={async () => {
               const brief = buildSchedulingHandoffBrief(item, detail.trackedRequests || []);
-              try {
-                await navigator.clipboard.writeText(brief);
+              if (await copyText(brief)) {
                 setCopyState("Copied scheduling handoff.");
-              } catch {
+              } else {
                 setCopyState("Clipboard unavailable. Scheduling handoff is shown below.");
               }
             }}
@@ -356,4 +354,14 @@ function buildSchedulingHandoffBrief(item, requests) {
     `Ready lines: ${requestSummary}`,
     `Next: ${item.nextAction || item.latestStatusText || "schedule return visit when confirmed"}`,
   ].join(" | ");
+}
+
+async function copyText(value) {
+  try {
+    if (!navigator.clipboard?.writeText) return false;
+    await navigator.clipboard.writeText(value);
+    return true;
+  } catch {
+    return false;
+  }
 }
