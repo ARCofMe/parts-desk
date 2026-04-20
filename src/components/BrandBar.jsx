@@ -1,4 +1,5 @@
 import { getWorkspaceLinkStatus } from "../workspaceLinks";
+import BrandLogo from "../brand/BrandLogo";
 import Icon from "./Icon";
 
 const WORKSPACE_ICONS = {
@@ -16,7 +17,7 @@ export default function BrandBar({ appName = "PartsDesk", workspaceLinks = {}, c
       <div className="brand-bar-top">
         <div className="brand-identity">
           <div className="brand-mark-card" aria-hidden="true">
-            <Icon name="parts" className="brand-mark-icon" />
+            <BrandLogo product="partsDesk" />
           </div>
           <div>
             <p className="brand-kicker">OpsHub ecosystem</p>
@@ -38,7 +39,7 @@ export default function BrandBar({ appName = "PartsDesk", workspaceLinks = {}, c
         </div>
       </div>
       <p className="brand-copy">
-        Right part. Right time. Track requests, push receipts through, and keep dispatch from waiting on hidden parts state.
+        Parts control for requests, receipts, recommendations, and inventory handoffs.
       </p>
       <div className="brand-link-row">
         {workspaces.map(({ appKey, label, href, current }) =>
