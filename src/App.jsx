@@ -64,6 +64,7 @@ export default function App() {
   const [selectedCaseDetail, setSelectedCaseDetail] = useState(null);
   const [caseSectionErrors, setCaseSectionErrors] = useState({});
   const [caseActionState, setCaseActionState] = useState(null);
+  const [caseEvidenceFeedbackState, setCaseEvidenceFeedbackState] = useState(null);
   const [caseDetailLoading, setCaseDetailLoading] = useState(false);
 
   const [requests, setRequests] = useState([]);
@@ -187,6 +188,7 @@ export default function App() {
     setCaseDetailLoading(true);
     setSelectedCaseDetail(null);
     setCaseSectionErrors({});
+    setCaseEvidenceFeedbackState(null);
     try {
       const [caseResult, timelineResult] = await Promise.allSettled([
         partsApi.getCase(reference),
@@ -306,6 +308,7 @@ export default function App() {
     setSelectedCaseDetail(null);
     setCaseSectionErrors({});
     setCaseActionState(null);
+    setCaseEvidenceFeedbackState(null);
     if (preferences.rememberLastCase && item?.reference) {
       safeLocalStorageSet(LAST_CASE_KEY, item.reference);
     }
@@ -371,6 +374,45 @@ export default function App() {
       }
     } catch (error) {
       setCaseActionState({ error: true, message: formatError(error) });
+    }
+  }
+
+  async function handleCaseEvidenceFeedback(outcome, recommendedItem = "") {
+    const srId = selectedCaseDetail?.case?.srId;
+    if (!srId) {
+      setCaseEvidenceFeedbackState({ error: true, message: "This case is not linked to an SR yet." });
+      return;
+    }
+    setCaseEvidenceFeedbackState({ loading: true, error: false, message: "Recording evidence feedback…" });
+    try {
+      const payload = await partsApi.submitComplaintEvidenceFeedback(srId, {
+        outcome,
+        recommendedItem,
+        notes: "",
+      });
+      setSelectedCaseDetail((current) => {
+        if (!current?.recommendationConversation?.conversation) return current;
+        return {
+          ...current,
+          recommendationConversation: {
+            ...current.recommendationConversation,
+            conversation: {
+              ...current.recommendationConversation.conversation,
+              evidenceSummary: {
+                ...(current.recommendationConversation.conversation.evidenceSummary || {}),
+                feedbackSummary: payload.feedbackSummary,
+              },
+            },
+          },
+        };
+      });
+      setCaseEvidenceFeedbackState({
+        loading: false,
+        error: false,
+        message: payload.message || `Recorded evidence feedback as ${outcome.replace("_", " ")}.`,
+      });
+    } catch (error) {
+      setCaseEvidenceFeedbackState({ loading: false, error: true, message: formatError(error) });
     }
   }
 
@@ -447,7 +489,9 @@ export default function App() {
           selectedCaseDetail={selectedCaseDetail}
           detailLoading={caseDetailLoading}
           actionState={caseActionState}
+          evidenceFeedbackState={caseEvidenceFeedbackState}
           onCaseAction={handleCaseAction}
+          onEvidenceFeedback={handleCaseEvidenceFeedback}
           onOpenRequests={() => setActiveTab("requests")}
           onOpenRequest={openRequestId}
         />

@@ -68,6 +68,9 @@ export const partsApi = {
   getRecommendationConversation(srId) {
     return request(`/parts/sr/${srId}/recommendation_conversation`, { timeoutMs: PARTS_READ_TIMEOUT_MS });
   },
+  submitComplaintEvidenceFeedback(srId, body = {}) {
+    return request(`/parts/sr/${srId}/complaint_intelligence/feedback`, { method: "POST", body });
+  },
   getRequests(filters = {}) {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {

@@ -21,7 +21,9 @@ export default function CasesView({
   selectedCaseDetail,
   detailLoading,
   actionState,
+  evidenceFeedbackState,
   onCaseAction,
+  onEvidenceFeedback,
   onOpenRequests,
   onOpenRequest,
 }) {
@@ -104,7 +106,9 @@ export default function CasesView({
         loading={detailLoading}
         detailErrors={detailErrors}
         actionState={actionState}
+        evidenceFeedbackState={evidenceFeedbackState}
         onCaseAction={onCaseAction}
+        onEvidenceFeedback={onEvidenceFeedback}
         onOpenRequests={onOpenRequests}
         onOpenRequest={onOpenRequest}
       />
@@ -112,7 +116,17 @@ export default function CasesView({
   );
 }
 
-function CaseDetail({ detail, loading, detailErrors, actionState, onCaseAction, onOpenRequests, onOpenRequest }) {
+function CaseDetail({
+  detail,
+  loading,
+  detailErrors,
+  actionState,
+  evidenceFeedbackState,
+  onCaseAction,
+  onEvidenceFeedback,
+  onOpenRequests,
+  onOpenRequest,
+}) {
   const [eta, setEta] = useState("");
   const [trackingNumber, setTrackingNumber] = useState("");
   const [trackingCarrier, setTrackingCarrier] = useState("");
@@ -142,6 +156,11 @@ function CaseDetail({ detail, loading, detailErrors, actionState, onCaseAction, 
   const diagnosticQuestions = Array.isArray(recommendationConversation?.diagnosticQuestions)
     ? recommendationConversation.diagnosticQuestions
     : [];
+  const evidenceSummary = recommendationConversation?.evidenceSummary || {};
+  const modelFamilyTrends = evidenceSummary?.modelFamilyTrends || null;
+  const feedbackSummary = evidenceSummary?.feedbackSummary || { counts: {}, latest: null };
+  const feedbackCounts = feedbackSummary?.counts || {};
+  const topRecommendation = supportedRecommendations[0] || null;
 
   return (
     <aside className="detail-panel">
@@ -181,6 +200,22 @@ function CaseDetail({ detail, loading, detailErrors, actionState, onCaseAction, 
         {!!detailErrors?.recommendationConversation && <p className="error-text">{detailErrors.recommendationConversation}</p>}
         {detail.recommendationConversation?.available ? (
           <div className="history-list">
+            <div className="detail-grid">
+              <Detail label="Confidence" value={evidenceSummary.confidence || "n/a"} />
+              <Detail label="Matched SRs" value={evidenceSummary.matchedHistoricalRequestCount ?? supportedRecommendations[0]?.matchingRequestCount ?? 0} />
+              <Detail label="Model family" value={modelFamilyTrends?.modelFamily || "n/a"} />
+              <Detail label="Top part" value={topRecommendation?.item || "none"} />
+            </div>
+            {modelFamilyTrends && (
+              <div className="history-entry">
+                <p>{modelFamilyTrends.modelFamily} trend</p>
+                <small>
+                  {modelFamilyTrends.requestCount || 0} similar model-family SRs. Top parts:{" "}
+                  {formatTrendItems(modelFamilyTrends.topParts, "item") || "none yet"}. Top complaints:{" "}
+                  {formatTrendItems(modelFamilyTrends.topComplaintTags, "tag") || "none yet"}.
+                </small>
+              </div>
+            )}
             {supportedRecommendations.map((part) => (
               <div key={`${part.itemType}-${part.item}`} className="history-entry">
                 <p>{part.item}</p>
@@ -197,6 +232,42 @@ function CaseDetail({ detail, loading, detailErrors, actionState, onCaseAction, 
               </div>
             )}
             <p className="muted">{recommendationConversation?.unsupportedPartsPolicy}</p>
+            <div className="history-entry">
+              <p>Evidence feedback</p>
+              <small>
+                Helpful {feedbackCounts.helpful || 0} • Needs review {feedbackCounts.needs_review || 0} • Not useful{" "}
+                {feedbackCounts.not_helpful || 0}
+                {feedbackSummary.latest?.outcome ? ` • Latest ${formatFeedbackOutcome(feedbackSummary.latest.outcome)}` : ""}
+              </small>
+              <div className="action-row">
+                <button
+                  type="button"
+                  disabled={evidenceFeedbackState?.loading}
+                  onClick={() => onEvidenceFeedback?.("helpful", topRecommendation?.item || "")}
+                >
+                  Evidence helped
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  disabled={evidenceFeedbackState?.loading}
+                  onClick={() => onEvidenceFeedback?.("needs_review", topRecommendation?.item || "")}
+                >
+                  Needs review
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  disabled={evidenceFeedbackState?.loading}
+                  onClick={() => onEvidenceFeedback?.("not_helpful", topRecommendation?.item || "")}
+                >
+                  Not useful
+                </button>
+              </div>
+              {evidenceFeedbackState?.message && (
+                <small className={evidenceFeedbackState.error ? "error-text" : "muted"}>{evidenceFeedbackState.message}</small>
+              )}
+            </div>
           </div>
         ) : (
           <p className="muted">{detail.recommendationConversation?.message || "No PartsCannon evidence loaded for this case."}</p>
@@ -369,6 +440,18 @@ function formatScore(value) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return "";
   return `${Math.round(numeric * 100)}% match`;
+}
+
+function formatTrendItems(items, key) {
+  if (!Array.isArray(items) || !items.length) return "";
+  return items
+    .slice(0, 3)
+    .map((item) => `${item?.[key] || "unknown"} (${item?.count || 0})`)
+    .join(", ");
+}
+
+function formatFeedbackOutcome(value) {
+  return String(value || "").replaceAll("_", " ");
 }
 
 function buildDispatchHandoffBrief(item, requests) {

@@ -10,6 +10,7 @@ const { partsApiMock } = vi.hoisted(() => ({
     getCase: vi.fn(),
     getCaseTimeline: vi.fn(),
     getRecommendationConversation: vi.fn(),
+    submitComplaintEvidenceFeedback: vi.fn(),
     sync: vi.fn(),
   },
 }));
@@ -47,12 +48,18 @@ describe("Parts App", () => {
     partsApiMock.getCase.mockReset();
     partsApiMock.getCaseTimeline.mockReset();
     partsApiMock.getRecommendationConversation.mockReset();
+    partsApiMock.submitComplaintEvidenceFeedback.mockReset();
     partsApiMock.sync.mockReset();
     partsApiMock.getCases.mockResolvedValue({ items: [] });
     partsApiMock.getRequests.mockResolvedValue({ items: [] });
     partsApiMock.getCase.mockResolvedValue({ case: { reference: "SR-100" }, trackedRequests: [] });
     partsApiMock.getCaseTimeline.mockResolvedValue({ entries: [] });
     partsApiMock.getRecommendationConversation.mockResolvedValue({ available: false, message: "No evidence." });
+    partsApiMock.submitComplaintEvidenceFeedback.mockResolvedValue({
+      success: true,
+      message: "Recorded evidence feedback as helpful.",
+      feedbackSummary: { counts: { helpful: 1 }, latest: { outcome: "helpful" } },
+    });
     partsApiMock.sync.mockResolvedValue({ message: "Sync complete." });
   });
 
@@ -234,6 +241,41 @@ describe("Parts App", () => {
 
     expect(await screen.findByRole("heading", { name: "SR-100" })).toBeInTheDocument();
     expect(screen.getByText("Timeline unavailable.")).toBeInTheDocument();
+  });
+
+  it("submits case evidence feedback through PartsDesk", async () => {
+    partsApiMock.getBoard.mockResolvedValue({ queueSummary: {}, caseMetrics: {}, openCases: [], openTrackedRequests: [] });
+    partsApiMock.getCases.mockResolvedValue({
+      items: [{ caseId: "parts:SR-100", reference: "SR-100", stage: "part_ordered", status: "open" }],
+    });
+    partsApiMock.getCase.mockResolvedValue({
+      case: { reference: "SR-100", srId: 100, stage: "part_ordered", status: "open" },
+      trackedRequests: [],
+    });
+    partsApiMock.getCaseTimeline.mockResolvedValue({ entries: [] });
+    partsApiMock.getRecommendationConversation.mockResolvedValue({
+      available: true,
+      conversation: {
+        supportedPartRecommendations: [{ item: "FAN-1", itemType: "part", matchingRequestCount: 2, score: 1 }],
+        diagnosticQuestions: [],
+        evidenceSummary: { feedbackSummary: { counts: {}, latest: null } },
+      },
+    });
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Cases" }));
+    fireEvent.click(await screen.findByRole("button", { name: /SR-100/i }));
+    fireEvent.click(await screen.findByRole("button", { name: "Evidence helped" }));
+
+    await waitFor(() => {
+      expect(partsApiMock.submitComplaintEvidenceFeedback).toHaveBeenCalledWith(100, {
+        outcome: "helpful",
+        recommendedItem: "FAN-1",
+        notes: "",
+      });
+    });
+    expect(await screen.findByText("Recorded evidence feedback as helpful.")).toBeInTheDocument();
   });
 
   it("drops malformed stored preferences instead of crashing on boot", async () => {

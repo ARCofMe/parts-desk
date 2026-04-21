@@ -134,6 +134,17 @@ describe("CasesView", () => {
               ],
               diagnosticQuestions: ["Does the igniter glow?"],
               unsupportedPartsPolicy: "Do not present unsupported parts as recommendations.",
+              evidenceSummary: {
+                confidence: "moderate",
+                matchedHistoricalRequestCount: 4,
+                modelFamilyTrends: {
+                  modelFamily: "DG45",
+                  requestCount: 6,
+                  topParts: [{ item: "IGN-1", count: 4 }],
+                  topComplaintTags: [{ tag: "no_heat", count: 5 }],
+                },
+                feedbackSummary: { counts: { helpful: 1 }, latest: { outcome: "helpful" } },
+              },
             },
           },
         }}
@@ -147,7 +158,9 @@ describe("CasesView", () => {
 
     expect(screen.getByText("Dispatch handoff brief")).toBeInTheDocument();
     expect(screen.getByText("PartsCannon evidence")).toBeInTheDocument();
-    expect(screen.getByText("IGN-1")).toBeInTheDocument();
+    expect(screen.getAllByText("IGN-1").length).toBeGreaterThan(0);
+    expect(screen.getByText("DG45 trend")).toBeInTheDocument();
+    expect(screen.getByText(/Helpful 1/)).toBeInTheDocument();
     expect(screen.getByText("Ask before ordering")).toBeInTheDocument();
     expect(screen.getByText("Does the igniter glow?")).toBeInTheDocument();
     expect(screen.getByText("Do not present unsupported parts as recommendations.")).toBeInTheDocument();
@@ -161,6 +174,53 @@ describe("CasesView", () => {
     await waitFor(() => {
       expect(screen.getByText("Copied dispatch handoff brief.")).toBeInTheDocument();
     });
+  });
+
+  it("records parts evidence feedback from the case detail", () => {
+    const onEvidenceFeedback = vi.fn();
+
+    render(
+      <CasesView
+        items={[]}
+        loading={false}
+        error=""
+        onRefresh={vi.fn()}
+        onSelectCase={vi.fn()}
+        selectedCase={{ reference: "SR-203" }}
+        selectedCaseDetail={{
+          case: {
+            caseId: "parts:SR-203",
+            srId: 203,
+            reference: "SR-203",
+            stage: "part_ordered",
+            stageLabel: "Ordered",
+            status: "open",
+          },
+          trackedRequests: [],
+          timeline: { entries: [] },
+          recommendationConversation: {
+            available: true,
+            conversation: {
+              supportedPartRecommendations: [{ item: "PUMP-1", itemType: "part", matchingRequestCount: 2, score: 0.5 }],
+              diagnosticQuestions: [],
+              evidenceSummary: { feedbackSummary: { counts: {}, latest: null } },
+            },
+          },
+        }}
+        detailLoading={false}
+        actionState={null}
+        evidenceFeedbackState={{ message: "Recorded evidence feedback as helpful." }}
+        onCaseAction={vi.fn()}
+        onEvidenceFeedback={onEvidenceFeedback}
+        onOpenRequests={vi.fn()}
+        onOpenRequest={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Evidence helped" }));
+
+    expect(onEvidenceFeedback).toHaveBeenCalledWith("helpful", "PUMP-1");
+    expect(screen.getByText("Recorded evidence feedback as helpful.")).toBeInTheDocument();
   });
 
   it("builds a scheduling handoff focused on received request lines", async () => {

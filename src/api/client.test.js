@@ -49,6 +49,21 @@ describe("partsApi client", () => {
     expect(url).toContain("/parts/sr/100/recommendation_conversation");
   });
 
+  it("posts complaint evidence feedback for service requests", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve(JSON.stringify({ success: true })),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await partsApi.submitComplaintEvidenceFeedback(100, { outcome: "helpful", recommendedItem: "FAN-1" });
+
+    const [url, options] = fetchMock.mock.calls[0];
+    expect(url).toContain("/parts/sr/100/complaint_intelligence/feedback");
+    expect(options.method).toBe("POST");
+    expect(JSON.parse(options.body)).toEqual({ outcome: "helpful", recommendedItem: "FAN-1" });
+  });
+
   it("clears the per-browser parts user id when blanked", () => {
     setPartsUserId("parts-42");
     setPartsUserId("");
