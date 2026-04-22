@@ -482,6 +482,7 @@ function Detail({ label, value }) {
 
 function describeStatusMeta(meta) {
   if (!meta || typeof meta !== "object") return "No BlueFolder SR status classification loaded.";
+  if (meta.actionRequired) return meta.actionRequired;
   if (meta.isClosed) return "This case should drop out once tracked parts work is cleared, because the SR is already closed or completed.";
   if (meta.isActiveParts) return "This SR is still in a tenant status that clearly reflects active parts work.";
   if (meta.isQuoteNeeded) return "This SR is blocked on quote approval, so parts may not be the only blocker.";
