@@ -62,6 +62,9 @@ describe("RequestsView", () => {
     expect(screen.getByText("Pick request")).toBeInTheDocument();
     expect(screen.getByText("requested: 1")).toBeInTheDocument();
     expect(screen.getByText("ordered: 1")).toBeInTheDocument();
+    expect(screen.getByText("Dispatch handoff: waiting eta")).toBeInTheDocument();
+    expect(screen.getByText("Request brief")).toBeInTheDocument();
+    expect(screen.getByText(/Linked case SR-101 is Ordered/)).toBeInTheDocument();
     expect(screen.getByText("Linked case")).toBeInTheDocument();
     expect(screen.getByText("SR-101 • Ordered")).toBeInTheDocument();
   });
@@ -158,5 +161,39 @@ describe("RequestsView", () => {
 
     expect(screen.queryByText("Could not load tracked requests.")).not.toBeInTheDocument();
     expect(screen.getByText("#12 • SR-102")).toBeInTheDocument();
+  });
+
+  it("disables request actions while a request update is running", () => {
+    render(
+      <RequestsView
+        items={[]}
+        loading={false}
+        error=""
+        onRefresh={vi.fn()}
+        onSelectRequest={vi.fn()}
+        selectedRequest={{ requestId: 30 }}
+        selectedRequestDetail={{
+          request: {
+            requestId: 30,
+            reference: "SR-300",
+            status: "requested",
+            description: "",
+            assignedPartsLabel: "",
+            caseStageLabel: "Requested",
+            requestedByLabel: "Dispatch 5",
+          },
+          case: null,
+        }}
+        detailLoading={false}
+        onRequestAction={vi.fn()}
+        requestActionState={{ loading: true, message: "Running request update..." }}
+        onOpenCase={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: "Assign" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Claim me" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Ordered" })).toBeDisabled();
+    expect(screen.getByText("No request description yet.")).toBeInTheDocument();
   });
 });

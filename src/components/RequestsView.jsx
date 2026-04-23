@@ -31,6 +31,10 @@ export default function RequestsView({
   }, [initialFilters]);
 
   useEffect(() => {
+    setAssignedPartsUserId("");
+  }, [selectedRequestDetail?.request?.requestId]);
+
+  useEffect(() => {
     if (!persistFilters) return;
     onPreferencesChange?.(filters);
   }, [filters, persistFilters]);
@@ -51,8 +55,11 @@ export default function RequestsView({
       return counts;
     }, {});
   }, [items]);
+  const sortedStatusCounts = Object.entries(statusCounts).sort((left, right) => String(left[0]).localeCompare(String(right[0])));
   const assignedPartsUserIdValue = assignedPartsUserId.trim();
   const canAssignEnteredOwner = /^\d+$/.test(assignedPartsUserIdValue);
+  const requestActionBusy = Boolean(requestActionState?.loading);
+  const requestSummary = buildRequestSummary(selectedRequestDetail?.request, selectedRequestDetail?.case);
 
   return (
     <section className="panel attention-layout">
@@ -64,8 +71,8 @@ export default function RequestsView({
           <span>Open case</span>
         </div>
         <div className="chip-list">
-          {Object.entries(statusCounts).length ? (
-            Object.entries(statusCounts).map(([status, count]) => (
+          {sortedStatusCounts.length ? (
+            sortedStatusCounts.map(([status, count]) => (
               <span key={status} className="queue-chip">{status}: {count}</span>
             ))
           ) : (
@@ -110,7 +117,7 @@ export default function RequestsView({
                 <strong>#{item.requestId} • {item.reference}</strong>
                 <span>{item.status}</span>
               </div>
-              <p>{item.description}</p>
+              <p>{item.description || "No request description yet."}</p>
               <div className="attention-card-meta">
                 <span>Case: {item.caseStageLabel || item.caseStage}</span>
                 <span>Assigned: {item.assignedPartsLabel || "unassigned"}</span>
@@ -144,11 +151,22 @@ export default function RequestsView({
               <Detail label="Technician" value={selectedRequestDetail.request.technicianLabel || "n/a"} />
             </div>
 
+            <div className="chip-list detail-block">
+              <span className="queue-chip">Owner: {requestSummary.ownerLabel}</span>
+              <span className="queue-chip">Case link: {requestSummary.caseLinkLabel}</span>
+              <span className="queue-chip">Dispatch handoff: {requestSummary.dispatchHandoffLabel}</span>
+            </div>
+
             <div className="detail-block">
               <strong>Description</strong>
-              <p>{selectedRequestDetail.request.description}</p>
+              <p>{selectedRequestDetail.request.description || "No request description yet."}</p>
               {selectedRequestDetail.request.downstreamNote && <p className="muted">Downstream note: {selectedRequestDetail.request.downstreamNote}</p>}
               <p className="muted">Requested by {selectedRequestDetail.request.requestedByLabel || "unknown"}.</p>
+            </div>
+
+            <div className="detail-block">
+              <strong>Request brief</strong>
+              <p>{requestSummary.summary}</p>
             </div>
 
             <details className="detail-block disclosure-card">
@@ -165,7 +183,7 @@ export default function RequestsView({
                 </label>
                 <button
                   type="button"
-                  disabled={!canAssignEnteredOwner}
+                  disabled={!canAssignEnteredOwner || requestActionBusy}
                   onClick={() =>
                     onRequestAction(selectedRequestDetail.request.requestId, "claim", {
                       assignedPartsUserId: Number.parseInt(assignedPartsUserIdValue, 10),
@@ -174,13 +192,13 @@ export default function RequestsView({
                 >
                   Assign
                 </button>
-                <button type="button" onClick={() => onRequestAction(selectedRequestDetail.request.requestId, "claim")}>Claim me</button>
-                <button type="button" onClick={() => onRequestAction(selectedRequestDetail.request.requestId, "unclaim")}>Unclaim</button>
+                <button type="button" disabled={requestActionBusy} onClick={() => onRequestAction(selectedRequestDetail.request.requestId, "claim")}>Claim me</button>
+                <button type="button" disabled={requestActionBusy} onClick={() => onRequestAction(selectedRequestDetail.request.requestId, "unclaim")}>Unclaim</button>
               </div>
               <div className="action-row">
-                <button type="button" onClick={() => onRequestAction(selectedRequestDetail.request.requestId, "status", { status: "ordered" })}>Ordered</button>
-                <button type="button" onClick={() => onRequestAction(selectedRequestDetail.request.requestId, "status", { status: "received" })}>Received</button>
-                <button type="button" onClick={() => onRequestAction(selectedRequestDetail.request.requestId, "status", { status: "resolved" })}>Resolved</button>
+                <button type="button" disabled={requestActionBusy} onClick={() => onRequestAction(selectedRequestDetail.request.requestId, "status", { status: "ordered" })}>Ordered</button>
+                <button type="button" disabled={requestActionBusy} onClick={() => onRequestAction(selectedRequestDetail.request.requestId, "status", { status: "received" })}>Received</button>
+                <button type="button" disabled={requestActionBusy} onClick={() => onRequestAction(selectedRequestDetail.request.requestId, "status", { status: "resolved" })}>Resolved</button>
               </div>
             </details>
 
@@ -231,4 +249,26 @@ function labelFor(key) {
     default:
       return key.charAt(0).toUpperCase() + key.slice(1);
   }
+}
+
+function buildRequestSummary(request, linkedCase) {
+  const status = String(request?.status || "unknown").trim();
+  const ownerLabel = request?.assignedPartsLabel || "unassigned";
+  const caseLinkLabel = linkedCase?.reference ? "linked" : "missing";
+  const normalizedStatus = status.toLowerCase();
+  let dispatchHandoffLabel = "not ready";
+  if (normalizedStatus === "received") dispatchHandoffLabel = "ready";
+  else if (normalizedStatus === "resolved") dispatchHandoffLabel = "closed";
+  else if (normalizedStatus === "ordered") dispatchHandoffLabel = "waiting eta";
+  const summary = [
+    `This request is ${status}.`,
+    linkedCase?.reference
+      ? `Linked case ${linkedCase.reference} is ${linkedCase.stageLabel || linkedCase.stage || "active"}.`
+      : "No linked case detail is loaded yet.",
+    ownerLabel === "unassigned"
+      ? "Claim an owner before updating downstream status."
+      : `${ownerLabel} currently owns the parts follow-up.`,
+    request?.nextAction || linkedCase?.nextAction || "No explicit next action is loaded yet.",
+  ].join(" ");
+  return { ownerLabel, caseLinkLabel, dispatchHandoffLabel, summary };
 }

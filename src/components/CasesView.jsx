@@ -39,6 +39,22 @@ export default function CasesView({
     onPreferencesChange?.(filters);
   }, [filters, persistFilters]);
 
+  const stageCounts = useMemo(() => {
+    return (items || []).reduce((counts, item) => {
+      const key = item?.stageLabel || item?.stage || "unknown";
+      counts[key] = (counts[key] || 0) + 1;
+      return counts;
+    }, {});
+  }, [items]);
+  const boardSignals = useMemo(() => {
+    const unowned = (items || []).filter((item) => !item?.assignedPartsLabel).length;
+    const schedulingReady = (items || []).filter((item) => String(item?.stage || "").toLowerCase() === "part_received").length;
+    return [
+      `Unowned: ${unowned}`,
+      `Scheduling ready: ${schedulingReady}`,
+      `Visible cases: ${(items || []).length}`,
+    ];
+  }, [items]);
   const visibleItems = useMemo(() => {
     return (items || []).filter((item) =>
       Object.entries(filters).every(([key, value]) => {
@@ -57,6 +73,17 @@ export default function CasesView({
           <span>Assign owner</span>
           <span>Update status</span>
           <span>Hand off</span>
+        </div>
+        <div className="chip-list">
+          {boardSignals.map((item) => (
+            <span key={item} className="queue-chip">{item}</span>
+          ))}
+          {Object.entries(stageCounts)
+            .sort((left, right) => String(left[0]).localeCompare(String(right[0])))
+            .slice(0, 4)
+            .map(([stage, count]) => (
+              <span key={stage} className="queue-chip">{stage}: {count}</span>
+            ))}
         </div>
         <div className="attention-toolbar">
           <details className="control-disclosure">
@@ -97,7 +124,7 @@ export default function CasesView({
               </div>
               <p>{item.nextAction || item.latestStatusText || "No next action text yet."}</p>
               <div className="attention-card-meta">
-                <span>Status: {item.status}</span>
+                <span>Status: {item.status || "unknown"}</span>
                 <span>SR: {item.serviceRequestStatus || "unknown"}</span>
                 <span>Age: {item.ageBucket || "n/a"}</span>
                 <span>Owner: {item.assignedPartsLabel || "unassigned"}</span>
@@ -147,6 +174,19 @@ function CaseDetail({
   const [copyState, setCopyState] = useState("");
   const [evidenceFeedbackNote, setEvidenceFeedbackNote] = useState("");
 
+  useEffect(() => {
+    setEta("");
+    setTrackingNumber("");
+    setTrackingCarrier("");
+    setOrderedVendor("");
+    setOrderedEta("");
+    setReceivedFrom("");
+    setReadyNote("");
+    setAssignedPartsUserId("");
+    setCopyState("");
+    setEvidenceFeedbackNote("");
+  }, [detail?.case?.reference]);
+
   if (loading) {
     return <aside className="detail-panel"><p className="muted">Loading parts case…</p></aside>;
   }
@@ -176,6 +216,11 @@ function CaseDetail({
   const topRecommendation = supportedRecommendations[0] || null;
   const assignedPartsUserIdValue = assignedPartsUserId.trim();
   const canAssignEnteredOwner = /^\d+$/.test(assignedPartsUserIdValue);
+  const actionBusy = Boolean(actionState?.message?.startsWith("Running"));
+  const detailSummary = buildCaseSummary(item, detail.trackedRequests || []);
+  const sortedTrackedRequests = [...(detail.trackedRequests || [])].sort((left, right) =>
+    String(left.status || "").localeCompare(String(right.status || "")) || Number(left.requestId || 0) - Number(right.requestId || 0)
+  );
 
   return (
     <aside className="detail-panel">
@@ -199,6 +244,13 @@ function CaseDetail({
       <div className="chip-list detail-block">
         <span className="queue-chip">Updated: {item.updatedAt || "unknown"}</span>
         <span className="queue-chip">Open requests: {(item.openRequestIds || []).length}</span>
+        <span className="queue-chip">Dispatch handoff: {detailSummary.dispatchHandoffLabel}</span>
+        <span className="queue-chip">Owner: {detailSummary.ownerLabel}</span>
+      </div>
+
+      <div className="detail-block">
+        <strong>Case brief</strong>
+        <p>{detailSummary.summary}</p>
       </div>
 
       <div className="detail-block">
@@ -219,7 +271,7 @@ function CaseDetail({
           </label>
           <button
             type="button"
-            disabled={actionState?.message?.startsWith("Running") || !canAssignEnteredOwner}
+            disabled={actionBusy || !canAssignEnteredOwner}
             onClick={() =>
               onCaseOwnerAction?.(
                 item.reference,
@@ -230,8 +282,8 @@ function CaseDetail({
           >
             Assign owner
           </button>
-          <button type="button" onClick={() => onCaseOwnerAction?.(item.reference, "claim")}>Claim me</button>
-          <button type="button" onClick={() => onCaseOwnerAction?.(item.reference, "unclaim")}>Unassign</button>
+          <button type="button" disabled={actionBusy} onClick={() => onCaseOwnerAction?.(item.reference, "claim")}>Claim me</button>
+          <button type="button" disabled={actionBusy} onClick={() => onCaseOwnerAction?.(item.reference, "unclaim")}>Unassign</button>
         </div>
       </div>
 
@@ -353,6 +405,7 @@ function CaseDetail({
           <strong>Dispatch handoff brief</strong>
           <button
             type="button"
+            disabled={actionBusy}
             onClick={async () => {
               const brief = buildDispatchHandoffBrief(item, detail.trackedRequests || []);
               if (await copyText(brief)) {
@@ -371,6 +424,7 @@ function CaseDetail({
           <strong>Scheduling handoff</strong>
           <button
             type="button"
+            disabled={actionBusy}
             onClick={async () => {
               const brief = buildSchedulingHandoffBrief(item, detail.trackedRequests || []);
               if (await copyText(brief)) {
@@ -400,6 +454,7 @@ function CaseDetail({
           </label>
           <button
             type="button"
+            disabled={actionBusy}
             onClick={() => onCaseAction(item.srId, "ordered", { vendor: orderedVendor, eta: orderedEta, details: "Part order posted from parts app." })}
           >
             Mark ordered
@@ -411,7 +466,7 @@ function CaseDetail({
           <span>ETA</span>
           <input value={eta} onChange={(event) => setEta(event.target.value)} placeholder="2026-04-05" />
         </label>
-        <button type="button" onClick={() => onCaseAction(item.srId, "eta", { eta, details: "ETA updated from parts app." })}>
+        <button type="button" disabled={actionBusy} onClick={() => onCaseAction(item.srId, "eta", { eta, details: "ETA updated from parts app." })}>
           Post ETA
         </button>
       </div>
@@ -427,6 +482,7 @@ function CaseDetail({
         </label>
         <button
           type="button"
+          disabled={actionBusy}
           onClick={() => onCaseAction(item.srId, "tracking", { trackingNumber, carrier: trackingCarrier, details: "Tracking updated from parts app." })}
         >
           Post tracking
@@ -438,7 +494,7 @@ function CaseDetail({
           <span>Received from</span>
           <input value={receivedFrom} onChange={(event) => setReceivedFrom(event.target.value)} placeholder="UPS dock" />
         </label>
-        <button type="button" onClick={() => onCaseAction(item.srId, "received", { details: "Part received and ready for verification.", receivedFrom })}>
+        <button type="button" disabled={actionBusy} onClick={() => onCaseAction(item.srId, "received", { details: "Part received and ready for verification.", receivedFrom })}>
           Mark received
         </button>
       </div>
@@ -448,7 +504,7 @@ function CaseDetail({
           <span>Ready note</span>
           <input value={readyNote} onChange={(event) => setReadyNote(event.target.value)} placeholder="All parts confirmed on hand" />
         </label>
-        <button type="button" onClick={() => onCaseAction(item.srId, "ready", { details: "Part ready for dispatch scheduling.", readyNote })}>
+        <button type="button" disabled={actionBusy} onClick={() => onCaseAction(item.srId, "ready", { details: "Part ready for dispatch scheduling.", readyNote })}>
           Ready to schedule
         </button>
       </div>
@@ -461,14 +517,19 @@ function CaseDetail({
           <strong>Tracked requests</strong>
           <button type="button" onClick={onOpenRequests}>Open requests tab</button>
         </div>
+        <div className="chip-list">
+          {summarizeTrackedRequestStatuses(sortedTrackedRequests).map((item) => (
+            <span key={item} className="queue-chip">{item}</span>
+          ))}
+        </div>
         <div className="history-list">
-          {(detail.trackedRequests || []).map((request) => (
+          {sortedTrackedRequests.map((request) => (
             <button key={request.requestId} type="button" className="history-entry history-button" onClick={() => onOpenRequest?.(request.requestId)}>
-              <p>#{request.requestId} • {request.status}</p>
-              <span>{request.description}</span>
+              <p>#{request.requestId} • {request.status || "unknown"}</p>
+              <span>{request.description || "No request description yet."}</span>
             </button>
           ))}
-          {!(detail.trackedRequests || []).length && <p className="muted">No tracked requests on this case.</p>}
+          {!sortedTrackedRequests.length && <p className="muted">No tracked requests on this case.</p>}
         </div>
       </div>
 
@@ -563,4 +624,32 @@ async function copyText(value) {
   } catch {
     return false;
   }
+}
+
+function summarizeTrackedRequestStatuses(items) {
+  if (!Array.isArray(items) || !items.length) return ["No tracked requests"];
+  const counts = items.reduce((result, item) => {
+    const status = item?.status || "unknown";
+    result[status] = (result[status] || 0) + 1;
+    return result;
+  }, {});
+  return Object.entries(counts)
+    .sort((left, right) => String(left[0]).localeCompare(String(right[0])))
+    .map(([status, count]) => `${status}: ${count}`);
+}
+
+function buildCaseSummary(item, trackedRequests) {
+  const ownerLabel = item?.assignedPartsLabel || "unassigned";
+  const stageLabel = item?.stageLabel || item?.stage || "unknown";
+  const receivedCount = (trackedRequests || []).filter((request) => String(request?.status || "").toLowerCase() === "received").length;
+  const dispatchHandoffLabel = receivedCount > 0 || String(item?.stage || "").toLowerCase() === "part_received" ? "ready" : "hold";
+  const summary = [
+    `${item?.reference || "This case"} is in ${stageLabel}.`,
+    ownerLabel === "unassigned" ? "An owner still needs to claim parts follow-up." : `${ownerLabel} owns the case.`,
+    item?.nextAction || "No explicit next action is loaded yet.",
+    receivedCount > 0
+      ? `${receivedCount} tracked request line${receivedCount === 1 ? "" : "s"} already show received and can move back toward scheduling.`
+      : "No tracked request lines are marked received yet.",
+  ].join(" ");
+  return { ownerLabel, dispatchHandoffLabel, summary };
 }

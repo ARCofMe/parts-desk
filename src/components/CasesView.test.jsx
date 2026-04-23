@@ -41,6 +41,8 @@ describe("CasesView", () => {
 
     fireEvent.change(screen.getByLabelText("Stage"), { target: { value: "received" } });
 
+    expect(screen.getByText("Unowned: 0")).toBeInTheDocument();
+    expect(screen.getByText("Scheduling ready: 1")).toBeInTheDocument();
     expect(screen.getByText("SR-101")).toBeInTheDocument();
     expect(screen.queryByText("SR-100")).not.toBeInTheDocument();
   });
@@ -158,6 +160,10 @@ describe("CasesView", () => {
     );
 
     expect(screen.getByText("Dispatch handoff brief")).toBeInTheDocument();
+    expect(screen.getByText("Case brief")).toBeInTheDocument();
+    expect(screen.getByText("Dispatch handoff: ready")).toBeInTheDocument();
+    expect(screen.getByText("Owner: unassigned")).toBeInTheDocument();
+    expect(screen.getByText("received: 1")).toBeInTheDocument();
     expect(screen.getByText("Evidence summary")).toBeInTheDocument();
     expect(screen.getByText("PartsCannon evidence details")).toBeInTheDocument();
     expect(screen.getAllByText("IGN-1").length).toBeGreaterThan(0);
@@ -270,6 +276,45 @@ describe("CasesView", () => {
     expect(onCaseOwnerAction).toHaveBeenNthCalledWith(1, "SR-204", "claim", { assignedPartsUserId: 88 });
     expect(onCaseOwnerAction).toHaveBeenNthCalledWith(2, "SR-204", "claim");
     expect(onCaseOwnerAction).toHaveBeenNthCalledWith(3, "SR-204", "unclaim");
+  });
+
+  it("disables case actions while a case update is running", () => {
+    render(
+      <CasesView
+        items={[]}
+        loading={false}
+        error=""
+        onRefresh={vi.fn()}
+        onSelectCase={vi.fn()}
+        selectedCase={{ reference: "SR-205" }}
+        selectedCaseDetail={{
+          case: {
+            caseId: "parts:SR-205",
+            srId: 205,
+            reference: "SR-205",
+            stage: "part_ordered",
+            stageLabel: "Ordered",
+            status: "open",
+            assignedPartsLabel: "",
+            openRequestIds: [],
+          },
+          trackedRequests: [{ requestId: 9, status: "", description: "" }],
+          timeline: { entries: [] },
+        }}
+        detailLoading={false}
+        actionState={{ message: "Running case update..." }}
+        onCaseAction={vi.fn()}
+        onCaseOwnerAction={vi.fn()}
+        onOpenRequests={vi.fn()}
+        onOpenRequest={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: "Assign owner" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Claim me" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Mark ordered" })).toBeDisabled();
+    expect(screen.getByText("unknown: 1")).toBeInTheDocument();
+    expect(screen.getByText("No request description yet.")).toBeInTheDocument();
   });
 
   it("builds a scheduling handoff focused on received request lines", async () => {
