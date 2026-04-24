@@ -64,6 +64,20 @@ export default function CasesView({
       })
     );
   }, [filters, items]);
+  const groupedCases = useMemo(() => {
+    const ready = visibleItems.filter((item) => String(item?.stage || "").toLowerCase() === "part_received");
+    const unowned = visibleItems.filter(
+      (item) => !item?.assignedPartsLabel && String(item?.stage || "").toLowerCase() !== "part_received"
+    );
+    const other = visibleItems.filter(
+      (item) => String(item?.stage || "").toLowerCase() !== "part_received" && item?.assignedPartsLabel
+    );
+    return [
+      { label: "Ready for scheduling", items: ready },
+      { label: "Needs owner", items: unowned },
+      { label: "Other open cases", items: other },
+    ].filter((section) => section.items.length > 0);
+  }, [visibleItems]);
 
   return (
     <section className="panel attention-layout">
@@ -111,25 +125,35 @@ export default function CasesView({
         {error && <p className="error-text">{error}</p>}
 
         <div className="list-stack">
-          {visibleItems.map((item) => (
-            <button
-              key={item.caseId}
-              type="button"
-              className={selectedCase?.reference === item.reference ? "attention-card selected" : "attention-card"}
-              onClick={() => onSelectCase(item)}
-            >
-              <div className="attention-card-top">
-                <strong>{item.reference}</strong>
-                <span>{item.stageLabel || item.stage}</span>
+          {groupedCases.map((group) => (
+            <section key={group.label} className="detail-block grouped-list">
+              <div className="section-head compact">
+                <strong>{group.label}</strong>
+                <span className="muted">{group.items.length}</span>
               </div>
-              <p>{item.nextAction || item.latestStatusText || "No next action text yet."}</p>
-              <div className="attention-card-meta">
-                <span>Status: {item.status || "unknown"}</span>
-                <span>SR: {item.serviceRequestStatus || "unknown"}</span>
-                <span>Age: {item.ageBucket || "n/a"}</span>
-                <span>Owner: {item.assignedPartsLabel || "unassigned"}</span>
+              <div className="list-stack">
+                {group.items.map((item) => (
+                  <button
+                    key={item.caseId}
+                    type="button"
+                    className={selectedCase?.reference === item.reference ? "attention-card selected" : "attention-card"}
+                    onClick={() => onSelectCase(item)}
+                  >
+                    <div className="attention-card-top">
+                      <strong>{item.reference}</strong>
+                      <span>{item.stageLabel || item.stage}</span>
+                    </div>
+                    <p>{item.nextAction || item.latestStatusText || "No next action text yet."}</p>
+                    <div className="attention-card-meta">
+                      <span>Status: {item.status || "unknown"}</span>
+                      <span>SR: {item.serviceRequestStatus || "unknown"}</span>
+                      <span>Age: {item.ageBucket || "n/a"}</span>
+                      <span>Owner: {item.assignedPartsLabel || "unassigned"}</span>
+                    </div>
+                  </button>
+                ))}
               </div>
-            </button>
+            </section>
           ))}
           {!visibleItems.length && !loading && !error && <p className="muted">No parts cases match the current filters.</p>}
         </div>
@@ -264,7 +288,7 @@ function CaseDetail({
             <span>Parts user ID</span>
             <input
               value={assignedPartsUserId}
-              onChange={(event) => setAssignedPartsUserId(event.target.value)}
+              onChange={(event) => setAssignedPartsUserId(String(event.target.value || "").replace(/[^\d]/g, ""))}
               inputMode="numeric"
               placeholder="1234567890"
             />

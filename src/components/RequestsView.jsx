@@ -55,6 +55,23 @@ export default function RequestsView({
       return counts;
     }, {});
   }, [items]);
+  const requestSignals = useMemo(() => {
+    const unowned = (items || []).filter((item) => !item?.assignedPartsLabel).length;
+    const ready = (items || []).filter((item) => String(item?.status || "").toLowerCase() === "received").length;
+    return [`Unowned: ${unowned}`, `Ready for dispatch: ${ready}`, `Visible: ${visibleItems.length}`];
+  }, [items, visibleItems.length]);
+  const groupedItems = useMemo(() => {
+    const ready = visibleItems.filter((item) => String(item?.status || "").toLowerCase() === "received");
+    const unowned = visibleItems.filter((item) => !item?.assignedPartsLabel && String(item?.status || "").toLowerCase() !== "received");
+    const other = visibleItems.filter(
+      (item) => String(item?.status || "").toLowerCase() !== "received" && item?.assignedPartsLabel
+    );
+    return [
+      { label: "Ready for dispatch", items: ready },
+      { label: "Needs owner", items: unowned },
+      { label: "Other active requests", items: other },
+    ].filter((section) => section.items.length > 0);
+  }, [visibleItems]);
   const sortedStatusCounts = Object.entries(statusCounts).sort((left, right) => String(left[0]).localeCompare(String(right[0])));
   const assignedPartsUserIdValue = assignedPartsUserId.trim();
   const canAssignEnteredOwner = /^\d+$/.test(assignedPartsUserIdValue);
@@ -71,6 +88,9 @@ export default function RequestsView({
           <span>Open case</span>
         </div>
         <div className="chip-list">
+          {requestSignals.map((item) => (
+            <span key={item} className="queue-chip">{item}</span>
+          ))}
           {sortedStatusCounts.length ? (
             sortedStatusCounts.map(([status, count]) => (
               <span key={status} className="queue-chip">{status}: {count}</span>
@@ -106,24 +126,34 @@ export default function RequestsView({
         {requestActionState && <p className={requestActionState.error ? "error-text" : "muted"}>{requestActionState.message}</p>}
 
         <div className="list-stack">
-          {visibleItems.map((item) => (
-            <button
-              key={item.requestId}
-              type="button"
-              className={selectedRequest?.requestId === item.requestId ? "attention-card selected" : "attention-card"}
-              onClick={() => onSelectRequest(item)}
-            >
-              <div className="attention-card-top">
-                <strong>#{item.requestId} • {item.reference}</strong>
-                <span>{item.status}</span>
+          {groupedItems.map((group) => (
+            <section key={group.label} className="detail-block grouped-list">
+              <div className="section-head compact">
+                <strong>{group.label}</strong>
+                <span className="muted">{group.items.length}</span>
               </div>
-              <p>{item.description || "No request description yet."}</p>
-              <div className="attention-card-meta">
-                <span>Case: {item.caseStageLabel || item.caseStage}</span>
-                <span>Assigned: {item.assignedPartsLabel || "unassigned"}</span>
-                <span>Next: {item.nextAction || "n/a"}</span>
+              <div className="list-stack">
+                {group.items.map((item) => (
+                  <button
+                    key={item.requestId}
+                    type="button"
+                    className={selectedRequest?.requestId === item.requestId ? "attention-card selected" : "attention-card"}
+                    onClick={() => onSelectRequest(item)}
+                  >
+                    <div className="attention-card-top">
+                      <strong>#{item.requestId} • {item.reference}</strong>
+                      <span>{item.status}</span>
+                    </div>
+                    <p>{item.description || "No request description yet."}</p>
+                    <div className="attention-card-meta">
+                      <span>Case: {item.caseStageLabel || item.caseStage}</span>
+                      <span>Assigned: {item.assignedPartsLabel || "unassigned"}</span>
+                      <span>Next: {item.nextAction || "n/a"}</span>
+                    </div>
+                  </button>
+                ))}
               </div>
-            </button>
+            </section>
           ))}
           {!visibleItems.length && !loading && !error && <p className="muted">No tracked requests match the current filters.</p>}
         </div>
@@ -165,7 +195,18 @@ export default function RequestsView({
             </div>
 
             <div className="detail-block">
-              <strong>Request brief</strong>
+              <div className="section-head compact">
+                <strong>Request brief</strong>
+                <button
+                  type="button"
+                  disabled={!requestSummary.summary}
+                  onClick={async () => {
+                    await copyText(requestSummary.summary);
+                  }}
+                >
+                  Copy brief
+                </button>
+              </div>
               <p>{requestSummary.summary}</p>
             </div>
 
@@ -176,7 +217,7 @@ export default function RequestsView({
                   <span>Assign to Discord user id</span>
                   <input
                     value={assignedPartsUserId}
-                    onChange={(event) => setAssignedPartsUserId(event.target.value)}
+                    onChange={(event) => setAssignedPartsUserId(String(event.target.value || "").replace(/[^\d]/g, ""))}
                     inputMode="numeric"
                     placeholder="1234567890"
                   />
@@ -271,4 +312,14 @@ function buildRequestSummary(request, linkedCase) {
     request?.nextAction || linkedCase?.nextAction || "No explicit next action is loaded yet.",
   ].join(" ");
   return { ownerLabel, caseLinkLabel, dispatchHandoffLabel, summary };
+}
+
+async function copyText(value) {
+  try {
+    if (!navigator.clipboard?.writeText) return false;
+    await navigator.clipboard.writeText(value);
+    return true;
+  } catch {
+    return false;
+  }
 }

@@ -416,6 +416,7 @@ button, input { font: inherit; }
 }
 
 .detail-block { margin-top: 18px; }
+.grouped-list { margin-top: 0; }
 
 .action-row,
 .inline-form-row {
